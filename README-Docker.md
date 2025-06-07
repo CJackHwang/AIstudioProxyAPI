@@ -20,8 +20,37 @@
 *   **[`Dockerfile`](./Dockerfile:1):** 这是构建 Docker 镜像的蓝图。它定义了基础镜像、依赖项安装、代码复制、端口暴露以及容器启动时执行的命令。
 *   **[`.dockerignore`](./.dockerignore:1):** 这个文件列出了在构建 Docker 镜像时应忽略的文件和目录。这有助于减小镜像大小并加快构建速度，例如排除 `.git` 目录、本地开发环境文件等。
 *   **[`supervisord.conf`](./supervisord.conf:1):** (如果项目使用 Supervisor) Supervisor 是一个进程控制系统，它允许用户在类 UNIX 操作系统上监控和控制多个进程。此配置文件定义了 Supervisor 应如何管理应用程序的进程 (例如，主服务和流服务)。
+*   **[`docker-compose.yml`](./docker-compose.yml:1):** 这是一个 YAML 文件，用于定义和运行多容器 Docker 应用程序。通过一个简单的命令，它就能根据 `Dockerfile` 构建镜像并以正确的配置启动服务，是推荐的部署方式。
 
-## 2. 构建 Docker 镜像
+## 2. 部署应用程序
+
+我们提供两种部署方式：使用 Docker Compose (推荐) 或手动部署。
+
+### 方法一：使用 Docker Compose 部署 (推荐)
+
+这是最简单、最推荐的部署方式。它使用 `docker-compose.yml` 文件来自动化构建和运行过程。
+
+在项目根目录下打开终端或命令行界面，然后执行以下命令：
+
+```bash
+docker compose up -d
+```
+
+**命令解释:**
+*   `docker compose up`: 此命令会读取 `docker-compose.yml` 文件，自动构建镜像 (如果尚未构建或已过期)，并创建和启动服务。
+*   `-d`: 以“分离模式”(detached mode) 运行容器，使它们在后台运行。
+
+服务启动后，您可以直接跳至 **第 3 节** 查看如何管理容器。
+
+**首次运行前的重要准备:**
+*   **创建 `auth_profiles/` 目录:** 在项目根目录下 (与 [`Dockerfile`](./Dockerfile:1) 同级)，手动创建一个名为 `auth_profiles` 的目录。如果您的应用程序需要初始的认证配置文件，请将它们放入此目录中。
+*   **(可选) 创建 `certs/` 目录:** 如果您计划使用自己的证书，请在项目根目录下创建一个名为 `certs` 的目录，并将您的证书文件 (例如 `server.crt`, `server.key`) 放入其中。`docker-compose.yml` 已配置为自动挂载此目录。
+
+### 方法二：手动部署
+
+如果您希望更好地理解部署的每一步，或者不使用 Docker Compose，可以选择手动部署。
+
+#### 步骤 1: 构建 Docker 镜像
 
 要构建 Docker 镜像，请在项目根目录下打开终端或命令行界面，然后执行以下命令：
 
@@ -39,7 +68,7 @@ docker build -t ai-studio-proxy:latest .
 
 构建过程可能需要一些时间，具体取决于您的网络速度和项目依赖项的多少。成功构建后，您可以使用 `docker images` 命令查看本地已有的镜像列表，其中应包含 `ai-studio-proxy:latest`。
 
-## 3. 运行 Docker 容器
+#### 步骤 2: 运行 Docker 容器
 
 镜像构建完成后，您可以使用以下命令来创建并运行一个基于该镜像的 Docker 容器：
 
@@ -90,78 +119,46 @@ docker run -d \
     *   如果您不指定名称，Docker 会自动为容器生成一个随机名称。
 *   `ai-studio-proxy:latest`: 指定要运行的镜像的名称和标签。这必须与您在 `docker build` 命令中使用的名称和标签相匹配。
 
-**首次运行前的重要准备:**
-*   **创建 `auth_profiles/` 目录:** 在项目根目录下 (与 [`Dockerfile`](./Dockerfile:1) 同级)，手动创建一个名为 `auth_profiles` 的目录。如果您的应用程序需要初始的认证配置文件，请将它们放入此目录中。
-*   **(可选) 创建 `certs/` 目录:** 如果您计划使用自己的证书并取消了相关卷挂载行的注释，请在项目根目录下创建一个名为 `certs` 的目录，并将您的证书文件 (例如 `server.crt`, `server.key`) 放入其中。
-
-## 4. 管理正在运行的容器
+## 3. 管理正在运行的容器
 
 一旦容器启动，您可以使用以下 Docker 命令来管理它：
 
-*   **查看正在运行的容器:**
-    ```bash
-    docker ps
-    ```
-    (如果您想查看所有容器，包括已停止的，请使用 `docker ps -a`)
+| 操作 | Docker Compose 命令 | 手动 Docker 命令 |
+| :--- | :--- | :--- |
+| **查看正在运行的容器** | `docker compose ps` | `docker ps` |
+| **查看容器日志** | `docker compose logs -f` | `docker logs -f ai-studio-proxy-container` |
+| **停止容器** | `docker compose down` | `docker stop ai-studio-proxy-container` |
+| **启动已停止的容器** | `docker compose up -d` | `docker start ai-studio-proxy-container` |
+| **重启容器** | `docker compose restart` | `docker restart ai-studio-proxy-container` |
+| **进入容器内部** | `docker compose exec app /bin/bash` | `docker exec -it ai-studio-proxy-container /bin/bash` |
+| **删除容器** | `docker compose down` | `docker stop ai-studio-proxy-container && docker rm ai-studio-proxy-container` |
 
-*   **查看容器日志:**
-    ```bash
-    docker logs ai-studio-proxy-container
-    ```
-    (如果您想持续跟踪日志输出，可以使用 `-f` 参数: `docker logs -f ai-studio-proxy-container`)
+## 4. 更新应用程序
 
-*   **停止容器:**
-    ```bash
-    docker stop ai-studio-proxy-container
-    ```
+当您更新了应用程序代码并希望部署新版本时，请执行以下步骤：
 
-*   **启动已停止的容器:**
+*   **使用 Docker Compose:**
     ```bash
-    docker start ai-studio-proxy-container
-    ```
+    # (推荐) 为了确保彻底清理，可以先停止并移除旧容器。
+    docker compose down
 
-*   **重启容器:**
-    ```bash
-    docker restart ai-studio-proxy-container
+    # 拉取最新的代码后，执行以下命令。它会自动重新构建镜像并重启服务。
+    docker compose up -d --build
     ```
 
-*   **进入容器内部 (获取一个交互式 shell):**
-    ```bash
-    docker exec -it ai-studio-proxy-container /bin/bash
-    ```
-    (或者 `/bin/sh`，取决于容器基础镜像中可用的 shell。这对于调试非常有用。)
+*   **手动更新:**
+    1.  停止并删除旧的容器：
+        ```bash
+        docker stop ai-studio-proxy-container
+        docker rm ai-studio-proxy-container
+        ```
+    2.  重新构建 Docker 镜像：
+        ```bash
+        docker build -t ai-studio-proxy:latest .
+        ```
+    3.  使用新的镜像运行新的容器 (使用与之前相同的 `docker run` 命令)。
 
-*   **删除容器:**
-    首先需要停止容器，然后才能删除它。
-    ```bash
-    docker stop ai-studio-proxy-container
-    docker rm ai-studio-proxy-container
-    ```
-    (如果您想强制删除正在运行的容器，可以使用 `docker rm -f ai-studio-proxy-container`，但不建议这样做，除非您知道自己在做什么。)
-
-## 5. 更新应用程序
-
-当您更新了应用程序代码并希望部署新版本时，通常需要执行以下步骤：
-
-1.  **停止并删除旧的容器** (如果它正在使用相同的端口或名称)：
-    ```bash
-    docker stop ai-studio-proxy-container
-    docker rm ai-studio-proxy-container
-    ```
-2.  **重新构建 Docker 镜像** (确保您在包含最新代码和 [`Dockerfile`](./Dockerfile:1) 的目录中)：
-    ```bash
-    docker build -t ai-studio-proxy:latest .
-    ```
-3.  **使用新的镜像运行新的容器** (使用与之前相同的 `docker run` 命令，或根据需要进行调整)：
-    ```bash
-    docker run -d \
-        -p <宿主机_服务端口>:2048 \
-        # ... (其他参数与之前相同) ...
-        --name ai-studio-proxy-container \
-        ai-studio-proxy:latest
-    ```
-
-## 6. 清理
+## 5. 清理
 
 *   **删除指定的 Docker 镜像:**
     ```bash
@@ -183,4 +180,4 @@ docker run -d \
 1. **认证文件**: Docker 部署需要预先在主机上获取有效的认证文件，并将其放置在 `auth_profiles/active/` 目录中。
 2. **模块化架构**: 项目采用模块化设计，所有配置和代码都已经过优化，无需手动修改。
 3. **端口配置**: 确保宿主机上的端口未被占用，默认使用 2048 (主服务) 和 3120 (流式代理)。
-4. **日志查看**: 可以通过 `docker logs` 命令查看容器运行日志，便于调试和监控。
+4. **日志查看**: 可以通过 `docker compose logs` 或 `docker logs` 命令查看容器运行日志，便于调试和监控。

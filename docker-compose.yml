@@ -1,0 +1,14 @@
+services:
+  ai-studio-proxy:
+    build: .
+    image: ai-studio-proxy:latest
+    container_name: ai-studio-proxy
+    ports:
+      - "2048:2048"
+      - "3120:3120"
+    volumes:
+      - ./auth_profiles:/app/auth_profiles
+    environment:
+      - SERVER_PORT=2048
+      - STREAM_PORT=3120
+    restart: unless-stopped
