@@ -17,6 +17,7 @@ import re
 # 导入配置和模型
 from config import *
 from models import ClientDisconnectedError
+from .response_modifiers import modify_model_list_data # 导入新函数
 
 logger = logging.getLogger("AIStudioProxyServer")
 
@@ -31,50 +32,24 @@ async def intercept_and_modify_response(route: Route):
     request = route.request
     logger.info(f"   🚀 拦截到请求: {request.method} {request.url}")
     # --- 定义所有变量到函数内部 ---
-    # 确定模型数据在列表中的索引 (根据您提供的原始响应数据进行精确调整)
-    # 原始响应数据: [[['models/gemini-2.5-pro-preview-06-05', None, '2.5-preview-06-05', 'Gemini 2.5 Pro Preview', ..., ['generateContent', 'countTokens', ...]], ...]]
-    # 观察数据，模型名称在内部列表的第 0 个位置
-    # 显示名称在内部列表的第 3 个位置
-    # 描述在内部列表的第 4 个位置
-    # 支持的方法列表在内部列表的第 7 个位置
-    NAME_IDX = 0
-    DISPLAY_NAME_IDX = 3 # 从日志看，这是显示名称的位置
-    DESC_IDX = 4         # 从日志看，这是描述的位置
-    METHODS_IDX = 7      # 从日志看，这是支持方法列表的位置
-    MODELS_TO_INJECT = [
-        {
-            "name": "models/kingfall-ab-test",
-            "displayName": "👑 Kingfall (Custom)",
-            "description": "Custom injected model."
-        },
-        {
-            "name": "models/gemini-2.5-pro-preview-03-25",
-            "displayName": "✨ Gemini 2.5 Pro 03-25 (Custom)",
-            "description": "Custom injected model."
-        },
-        {
-            "name": "models/goldmane-ab-test",
-            "displayName": "🦁 Goldmane (Custom)",
-            "description": "Custom injected model."
-        },
-        {
-            "name": "models/claybrook-ab-test",
-            "displayName": "💧 Claybrook (Custom)",
-            "description": "Custom injected model."
-        },
-        {
-            "name": "models/frostwind-ab-test",
-            "displayName": "❄️ Frostwind (Custom)",
-            "description": "Custom injected model."
-        },
-        {
-            "name": "models/calmriver-ab-test",
-            "displayName": "🌊 Calmriver (Custom)",
-            "description": "Custom injected model."
-        },
-        # 可以在此按格式继续添加更多模型
-    ]
-    # --- 变量定义结束 ---
+    # 获取当前文件 (initialization.py) 所在的目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 构建到 config/custom_models.json 的路径
+    # (假设 browser_utils 和 config 是项目根目录下的同级文件夹)
+    json_config_path = os.path.join(current_dir, '..', 'config', 'custom_models.json')
+    
+    MODELS_TO_INJECT = [] # 默认为空列表
+    try:
+        with open(json_config_path, 'r', encoding='utf-8') as f:
+            MODELS_TO_INJECT = json.load(f)
+        logger.info(f"   Successfully loaded {len(MODELS_TO_INJECT)} custom models from {json_config_path}")
+    except FileNotFoundError:
+        logger.error(f"   Custom models JSON file not found at {json_config_path}. No custom models will be injected.")
+    except json.JSONDecodeError as e:
+        logger.error(f"   Error decoding custom models JSON file at {json_config_path}: {e}. No custom models will be injected.")
+    except Exception as e:
+        logger.error(f"   An unexpected error occurred while loading custom models from {json_config_path}: {e}. No custom models will be injected.")
+
     # 检查 URL 是否匹配您指定的目标：'MakerSuiteService/ListModels'
     if re.search(r'MakerSuiteService/ListModels', request.url):
         logger.info("   ✨ 匹配到 MakerSuiteService/ListModels 请求，正在尝试修改响应...")
@@ -93,138 +68,18 @@ async def intercept_and_modify_response(route: Route):
             
             original_json = json.loads(response_body_str)
             logger.info(f"   原始响应数据: {original_json}")
-            # 根据您提供的日志，原始 JSON 数据是一个列表的列表，
-            # 实际的模型数组是这个最外层列表的第一个元素。
-            if isinstance(original_json, list) and len(original_json) > 0 and isinstance(original_json[0], list):
-                modified_json_container = copy.deepcopy(original_json) # 深拷贝整个结构
-                models_array = modified_json_container[0] # 实际操作的模型列表是第一个元素
-            else:
-                logger.error("Unexpected JSON structure: models array not found at the expected position (original_json[0]). Aborting modification.")
-                await route.continue_() # 如果结构不符合预期，则继续原始请求
-                return # 提前退出函数
-            # 确保 models_array 确实是一个列表
-            if not isinstance(models_array, list):
-                logger.error("Extracted models_array is not a list. Aborting modification.")
-                await route.continue_()
-                return
-            modification_made = False
-            # 寻找模板模型 (Python 版)
-            template_model = None
-            
-            # 定义所有需要用到的索引
-            required_indices = {NAME_IDX, DISPLAY_NAME_IDX, DESC_IDX, METHODS_IDX}
-            # 确保有索引可供计算最大值，如果 required_indices 为空，max() 会报错
-            max_required_index = max(required_indices) if required_indices else 0 
-            # 优先寻找包含 'flash' 或 'pro' 且所有必要索引都存在且类型正确的模型作为模板
-            for m in models_array:
-                # 1. 检查是否是列表
-                if not isinstance(m, list):
-                    continue
-                
-                # 2. 检查列表长度是否足够包含所有所需的索引
-                if len(m) <= max_required_index:
-                    # 仅在调试级别记录，避免过多日志
-                    logger.debug(f"   Skipping model (length insufficient): {m[NAME_IDX] if len(m) > NAME_IDX else 'Unknown Name'}")
-                    continue
-                
-                # 3. 检查 NAME_IDX 和 METHODS_IDX 处的类型
-                if not isinstance(m[NAME_IDX], str) or not isinstance(m[METHODS_IDX], list):
-                    logger.debug(f"   Skipping model (type mismatch at NAME_IDX or METHODS_IDX): {m[NAME_IDX]}")
-                    continue
-                # 4. 检查 DISPLAY_NAME_IDX 和 DESC_IDX 处的类型 (它们可以是字符串或 None)
-                if not isinstance(m[DISPLAY_NAME_IDX], (str, type(None))) or \
-                   not isinstance(m[DESC_IDX], (str, type(None))):
-                    logger.debug(f"   Skipping model (type mismatch at DISPLAY_NAME_IDX or DESC_IDX): {m[NAME_IDX]}")
-                    continue
-                # 优先条件：名称中包含 'flash' 或 'pro'
-                if 'flash' in m[NAME_IDX] or 'pro' in m[NAME_IDX]:
-                    template_model = m
-                    logger.info(f"   Found preferred template model: {m[NAME_IDX]}")
-                    break # 找到首选模板后立即退出循环
-            # 如果没有找到首选模板，则找第一个满足基本条件（列表、长度足够、Name和Methods类型正确）的模型作为模板
-            if not template_model:
-                for m in models_array:
-                    if not isinstance(m, list):
-                        continue
-                    if len(m) <= max_required_index:
-                        continue
-                    if not isinstance(m[NAME_IDX], str) or not isinstance(m[METHODS_IDX], list):
-                        continue
-                    if not isinstance(m[DISPLAY_NAME_IDX], (str, type(None))) or \
-                       not isinstance(m[DESC_IDX], (str, type(None))):
-                        continue
-                    
-                    template_model = m
-                    logger.info(f"   Found fallback template model: {m[NAME_IDX]}")
-                    break
-            template_name = template_model[NAME_IDX] if template_model and len(template_model) > NAME_IDX else 'unknown'
-            if template_model:
-                logger.info(f"   Using template: {template_name}")
-                # 打印模板模型的关键信息，以便进一步调试
-                logger.info(f"   Template model details: Name='{template_model[NAME_IDX]}', DisplayName='{template_model[DISPLAY_NAME_IDX]}', Desc='{template_model[DESC_IDX]}', Methods='{template_model[METHODS_IDX]}'")
-            else:
-                logger.warning('Could not find a suitable template model array. Cannot inject new models, but can update existing ones.')
-            # 逆序遍历 MODELS_TO_INJECT，以便 unshift 后顺序正确
-            for model_to_inject in reversed(MODELS_TO_INJECT):
-                model_exists = False
-                for model in models_array:
-                    if isinstance(model, list) and len(model) > NAME_IDX and model[NAME_IDX] == model_to_inject["name"]:
-                        model_exists = True
-                        break
-                if not model_exists:
-                    if not template_model:
-                        logger.warning(f"Cannot inject {model_to_inject['name']}: No template found.")
-                        continue
-                    new_model = copy.deepcopy(template_model) # 深拷贝模板
-                    # 使用索引修改新模型的属性
-                    # 确保索引在列表范围内，避免 IndexError
-                    if len(new_model) > NAME_IDX:
-                        new_model[NAME_IDX] = model_to_inject["name"]
-                    else:
-                        # 如果列表不够长，先扩展
-                        while len(new_model) <= NAME_IDX:
-                            new_model.append(None)
-                        new_model[NAME_IDX] = model_to_inject["name"]
-                    if len(new_model) > DISPLAY_NAME_IDX:
-                        new_model[DISPLAY_NAME_IDX] = model_to_inject["displayName"]
-                    else:
-                        while len(new_model) <= DISPLAY_NAME_IDX:
-                            new_model.append(None)
-                        new_model[DISPLAY_NAME_IDX] = model_to_inject["displayName"]
-                    if len(new_model) > DESC_IDX:
-                        new_model[DESC_IDX] = f"{model_to_inject['description']} (Structure based on {template_name})"
-                    else:
-                        while len(new_model) <= DESC_IDX:
-                            new_model.append(None)
-                        new_model[DESC_IDX] = f"{model_to_inject['description']} (Structure based on {template_name})"
-                    
-                    # 确保 METHODS_IDX 处的元素是列表，并包含必要方法
-                    if len(new_model) > METHODS_IDX:
-                        if not isinstance(new_model[METHODS_IDX], list) or not new_model[METHODS_IDX]:
-                            new_model[METHODS_IDX] = ["generateContent", "countTokens","createCachedContent","batchGenerateContent"]
-                    else:
-                        # 如果 METHODS_IDX 超出当前列表长度，需要扩展列表
-                        while len(new_model) <= METHODS_IDX:
-                            new_model.append(None) # 用 None 填充，直到足够长
-                        new_model[METHODS_IDX] = ["generateContent", "countTokens","createCachedContent","batchGenerateContent"]
-                    models_array.insert(0, new_model) # 添加到列表开头
-                    modification_made = True
-                    logger.info(f"Successfully INJECTED: {model_to_inject['displayName']}")
-                else:
-                    # 模型已存在，检查并更新 displayName
-                    existing_model = next((model for model in models_array if isinstance(model, list) and len(model) > NAME_IDX and model[NAME_IDX] == model_to_inject["name"]), None)
-                    if existing_model and len(existing_model) > DISPLAY_NAME_IDX:
-                        current_display_name = existing_model[DISPLAY_NAME_IDX]
-                        target_display_name = model_to_inject["displayName"]
-                        # 检查是否需要更新 displayName
-                        if current_display_name != target_display_name:
-                            existing_model[DISPLAY_NAME_IDX] = target_display_name
-                            modification_made = True
-                            logger.info(f"Updated displayName for existing model {model_to_inject['name']} to: {target_display_name}")
+
+            # 调用新的 modify_model_list_data 函数
+            modified_response_data, modification_was_made = modify_model_list_data(
+                original_model_data_container=original_json,
+                models_to_inject_config=MODELS_TO_INJECT,
+                logger=logger
+            )
+
             # 如果有修改，才重新构建响应体并 fulfill
-            if modification_made:
+            if modification_was_made:
                 # 将整个 modified_json_container (包含修改后的 models_array) 转换为 JSON 字符串
-                body_content = json.dumps(modified_json_container, ensure_ascii=False)
+                body_content = json.dumps(modified_response_data, ensure_ascii=False)
                 
                 # 使用原始响应的状态码和头信息
                 await route.fulfill(

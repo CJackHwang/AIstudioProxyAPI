@@ -1,0 +1,32 @@
+[
+  {
+    "name": "models/kingfall-ab-test",
+    "displayName": "👑 Kingfall (Custom)",
+    "description": "Custom injected model."
+  },
+  {
+    "name": "models/gemini-2.5-pro-preview-03-25",
+    "displayName": "✨ Gemini 2.5 Pro 03-25 (Custom)",
+    "description": "Custom injected model."
+  },
+  {
+    "name": "models/goldmane-ab-test",
+    "displayName": "🦁 Goldmane (Custom)",
+    "description": "Custom injected model."
+  },
+  {
+    "name": "models/claybrook-ab-test",
+    "displayName": "💧 Claybrook (Custom)",
+    "description": "Custom injected model."
+  },
+  {
+    "name": "models/frostwind-ab-test",
+    "displayName": "❄️ Frostwind (Custom)",
+    "description": "Custom injected model."
+  },
+  {
+    "name": "models/calmriver-ab-test",
+    "displayName": "🌊 Calmriver (Custom)",
+    "description": "Custom injected model."
+  }
+]
