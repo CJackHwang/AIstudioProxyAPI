@@ -17,12 +17,14 @@ ENV PATH="${POETRY_HOME}/bin:${PATH}"
 
 WORKDIR /app_builder
 
+RUN pip install uv
+
 # Copy Poetry project files
 COPY pyproject.toml poetry.lock ./
 
-# Configure Poetry to not create virtualenvs and install dependencies
-RUN poetry config virtualenvs.create false --local && \
-    poetry install --no-root --no-dev --no-interaction --no-ansi
+RUN poetry export -f requirements.txt --output requirements.txt --only main --without-hashes && \
+    uv pip install --system --no-cache -r requirements.txt
+
 
 FROM python:3.10-slim-bookworm
 
