@@ -3,7 +3,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: ai-studio-proxy-test-container
+    container_name: ai-studio-proxy-container
     mem_limit: ${DOCKER_MEMORY_LIMIT:-0}
     memswap_limit: ${DOCKER_MEMSWAP_LIMIT:-0}
     ports:
