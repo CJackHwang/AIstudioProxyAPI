@@ -77,6 +77,8 @@ RUN mkdir -p /var/cache/camoufox && \
     ln -s /var/cache/camoufox /app/.cache/camoufox 
 #新增结束
 
+RUN python update_browserforge_data.py
+
 EXPOSE 2048
 EXPOSE 3120
 
