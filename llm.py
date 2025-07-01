@@ -7,7 +7,7 @@ import logging
 import json
 import sys # 新增导入
 from typing import Dict, Any
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 # 自定义日志 Handler，确保刷新
 class FlushingStreamHandler(logging.StreamHandler):
@@ -58,6 +58,7 @@ app = Flask(__name__)
 ENABLED_MODELS = {
     "gemini-2.5-pro-preview-05-06",
     "gemini-2.5-flash-preview-04-17",
+    "gemini-2.5-flash-preview-native-audio-dialog",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
     "gemini-1.5-pro",
@@ -114,7 +115,7 @@ def tags_endpoint():
         models.append({
             "name": model_name,
             "model": model_name,
-            "modified_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "modified_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "size": size,
             "digest": str(uuid.uuid4()),
             "details": {
@@ -137,7 +138,7 @@ def generate_ollama_mock_response(prompt: str, model: str) -> Dict[str, Any]:
 
     return {
         "model": model,
-        "created_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "message": {
             "role": "assistant",
             "content": response_content
@@ -161,7 +162,7 @@ def convert_api_to_ollama_response(api_response: Dict[str, Any], model: str) -> 
 
         return {
             "model": model,
-            "created_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "message": {
                 "role": "assistant",
                 "content": content
