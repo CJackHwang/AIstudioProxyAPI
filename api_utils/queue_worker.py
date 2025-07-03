@@ -13,11 +13,31 @@ async def queue_worker():
     """队列工作器，处理请求队列中的任务"""
     # 导入全局变量
     from server import (
-        logger, request_queue, processing_lock, model_switching_lock, 
+        logger, request_queue, processing_lock, model_switching_lock,
         params_cache_lock
     )
-    
+
     logger.info("--- 队列 Worker 已启动 ---")
+
+    try:
+        await _queue_worker_main_loop()
+    except asyncio.CancelledError:
+        logger.info("队列工作器已被取消")
+        raise
+    except Exception as e:
+        logger.error(f"队列工作器发生意外错误: {e}", exc_info=True)
+        raise
+    finally:
+        logger.info("队列工作器已停止")
+
+
+async def _queue_worker_main_loop():
+    """队列工作器主循环"""
+    # 导入全局变量
+    from server import (
+        logger, request_queue, processing_lock, model_switching_lock,
+        params_cache_lock
+    )
     
     # 检查并初始化全局变量
     if request_queue is None:

@@ -80,6 +80,13 @@ def _setup_logging():
         redirect_print_str=redirect_print_env
     )
 
+async def _start_websocket_cleanup():
+    """启动WebSocket清理任务"""
+    import server
+    if server.log_ws_manager:
+        await server.log_ws_manager.start_cleanup_task()
+        server.logger.info("WebSocket 清理任务已启动")
+
 def _initialize_globals():
     import server
     server.request_queue = Queue()
@@ -149,32 +156,82 @@ async def _initialize_browser_and_page():
         server.model_list_fetch_event.set()
 
 async def _shutdown_resources():
+    """使用优雅关闭管理器清理资源"""
     import server
     logger = server.logger
-    logger.info("Shutting down resources...")
-    
-    if server.STREAM_PROCESS:
-        server.STREAM_PROCESS.terminate()
-        logger.info("STREAM proxy terminated.")
+    logger.info("Shutting down resources via graceful shutdown manager...")
 
+    try:
+        from .graceful_shutdown import graceful_shutdown
+        await graceful_shutdown()
+        logger.info("Graceful shutdown completed.")
+    except Exception as e:
+        logger.error(f"Error during graceful shutdown: {e}")
+        # 如果优雅关闭失败，执行基本清理
+        await _basic_cleanup()
+
+    # 重置全局状态
+    server.page_instance = None
+    server.browser_instance = None
+    server.playwright_manager = None
+    server.log_ws_manager = None
+    server.is_playwright_ready = False
+    server.is_browser_connected = False
+    server.is_page_ready = False
+
+
+async def _basic_cleanup():
+    """基本清理功能（作为优雅关闭的回退）"""
+    import server
+    logger = server.logger
+
+    # 停止流代理进程
+    if server.STREAM_PROCESS:
+        try:
+            server.STREAM_PROCESS.terminate()
+            server.STREAM_PROCESS.join(timeout=5.0)
+            if server.STREAM_PROCESS.is_alive():
+                server.STREAM_PROCESS.kill()
+            logger.info("STREAM proxy terminated (basic cleanup).")
+        except Exception as e:
+            logger.error(f"Error terminating STREAM proxy: {e}")
+
+    # 停止工作任务
     if server.worker_task and not server.worker_task.done():
         server.worker_task.cancel()
         try:
             await asyncio.wait_for(server.worker_task, timeout=5.0)
         except (asyncio.TimeoutError, asyncio.CancelledError):
             pass
-        logger.info("Worker task stopped.")
+        logger.info("Worker task stopped (basic cleanup).")
 
-    if server.page_instance:
-        await _close_page_logic()
-    
-    if server.browser_instance and server.browser_instance.is_connected():
-        await server.browser_instance.close()
-        logger.info("Browser connection closed.")
-    
+    # 清理浏览器资源
+    try:
+        if server.page_instance:
+            from browser_utils.initialization import _close_page_logic
+            await _close_page_logic()
+
+        if server.browser_instance and server.browser_instance.is_connected():
+            await server.browser_instance.close()
+            logger.info("Browser connection closed (basic cleanup).")
+    except Exception as e:
+        logger.error(f"Error in basic browser cleanup: {e}")
+
+    # 停止Playwright
     if server.playwright_manager:
-        await server.playwright_manager.stop()
-        logger.info("Playwright stopped.")
+        try:
+            await server.playwright_manager.stop()
+            logger.info("Playwright stopped (basic cleanup).")
+        except Exception as e:
+            logger.error(f"Error stopping Playwright: {e}")
+
+    # 关闭WebSocket管理器
+    if server.log_ws_manager:
+        try:
+            await server.log_ws_manager.shutdown()
+            logger.info("WebSocket 管理器已关闭 (basic cleanup)")
+        except Exception as e:
+            logger.error(f"关闭 WebSocket 管理器时出错: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -189,18 +246,29 @@ async def lifespan(app: FastAPI):
     _initialize_globals()
     _initialize_proxy_settings()
     load_excluded_models(EXCLUDED_MODELS_FILENAME)
-    
+
+    # 设置优雅关闭管理器
+    from .graceful_shutdown import setup_default_shutdown_handlers, install_signal_handlers
+    setup_default_shutdown_handlers()
+    install_signal_handlers()
+
     server.is_initializing = True
     logger.info("Starting AI Studio Proxy Server...")
 
     try:
         await _start_stream_proxy()
+        await _start_websocket_cleanup()
         await _initialize_browser_and_page()
-        
+
         launch_mode = os.environ.get('LAUNCH_MODE', 'unknown')
         if server.is_page_ready or launch_mode == "direct_debug_no_browser":
-            server.worker_task = asyncio.create_task(queue_worker())
-            logger.info("Request processing worker started.")
+            # 使用任务管理器创建工作任务
+            from .task_manager import create_managed_task
+            server.worker_task = await create_managed_task(
+                queue_worker(),
+                name="queue_worker"
+            )
+            logger.info("Request processing worker started with task manager.")
         else:
             raise RuntimeError("Failed to initialize browser/page, worker not started.")
 

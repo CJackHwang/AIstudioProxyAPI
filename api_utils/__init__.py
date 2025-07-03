@@ -46,6 +46,27 @@ from .queue_worker import (
     queue_worker
 )
 
+# 任务管理器
+from .task_manager import (
+    AsyncTaskManager,
+    get_task_manager,
+    cleanup_global_tasks,
+    create_managed_task,
+    cancel_managed_task,
+    get_managed_task,
+    get_task_info
+)
+
+# 优雅关闭管理器
+from .graceful_shutdown import (
+    GracefulShutdownManager,
+    get_shutdown_manager,
+    add_shutdown_handler,
+    graceful_shutdown,
+    install_signal_handlers,
+    setup_default_shutdown_handlers
+)
+
 __all__ = [
     # 应用初始化
     'create_app',
@@ -74,5 +95,20 @@ __all__ = [
     # 请求处理器
     '_process_request_refactored',
     # 队列工作器
-    'queue_worker'
-] 
+    'queue_worker',
+    # 任务管理器
+    'AsyncTaskManager',
+    'get_task_manager',
+    'cleanup_global_tasks',
+    'create_managed_task',
+    'cancel_managed_task',
+    'get_managed_task',
+    'get_task_info',
+    # 优雅关闭管理器
+    'GracefulShutdownManager',
+    'get_shutdown_manager',
+    'add_shutdown_handler',
+    'graceful_shutdown',
+    'install_signal_handlers',
+    'setup_default_shutdown_handlers'
+]

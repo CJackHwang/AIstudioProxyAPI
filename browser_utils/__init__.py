@@ -22,6 +22,7 @@ from .model_management import (
     _verify_and_apply_ui_state
 )
 from .script_manager import ScriptManager, script_manager
+from .resource_manager import BrowserResourceManager, get_resource_manager, cleanup_global_resources
 
 __all__ = [
     # 初始化相关
@@ -51,5 +52,10 @@ __all__ = [
 
     # 脚本管理相关
     'ScriptManager',
-    'script_manager'
+    'script_manager',
+
+    # 资源管理相关
+    'BrowserResourceManager',
+    'get_resource_manager',
+    'cleanup_global_resources'
 ]
