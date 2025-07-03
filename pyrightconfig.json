@@ -1,6 +1,7 @@
 {
     "include": [
-        "."
+        "api_utils",
+        "tests"
     ],
     "exclude": [
         "**/__pycache__",
@@ -10,45 +11,16 @@
         "node_modules",
         "deprecated_javascript_version",
         "errors_py",
-        "logs"
+        "logs",
+        "build",
+        "dist",
+        "stream",
+        "browser_utils"
     ],
-    "extraPaths": [
-        ".",
-        "./api_utils",
-        "./browser_utils",
-        "./config",
-        "./models",
-        "./logging_utils",
-        "./stream"
-    ],
-    "pythonVersion": "3.13",
-    "pythonPlatform": "Darwin",
+    "pythonVersion": "3.12",
     "typeCheckingMode": "off",
     "useLibraryCodeForTypes": true,
-    "autoImportCompletions": true,
-    "autoSearchPaths": true,
-    "stubPath": "",
     "reportMissingImports": "none",
     "reportMissingTypeStubs": "none",
-    "reportUnusedImport": "none",
-    "reportUnusedClass": "none",
-    "reportUnusedFunction": "none",
-    "reportUnusedVariable": "none",
-    "reportDuplicateImport": "none",
-    "reportOptionalSubscript": "none",
-    "reportOptionalMemberAccess": "none",
-    "reportOptionalCall": "none",
-    "reportOptionalIterable": "none",
-    "reportOptionalContextManager": "none",
-    "reportOptionalOperand": "none",
-    "reportGeneralTypeIssues": "none",
-    "reportUntypedFunctionDecorator": "none",
-    "reportUntypedClassDecorator": "none",
-    "reportUntypedBaseClass": "none",
-    "reportUntypedNamedTuple": "none",
-    "reportPrivateUsage": "none",
-    "reportConstantRedefinition": "none",
-    "reportIncompatibleMethodOverride": "none",
-    "reportIncompatibleVariableOverride": "none",
-    "reportInconsistentConstructor": "none"
+    "reportGeneralTypeIssues": "none"
 }
