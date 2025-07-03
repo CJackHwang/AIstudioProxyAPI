@@ -435,12 +435,31 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
     current_ai_studio_model_id = getattr(server, 'current_ai_studio_model_id', None)
     parsed_model_list = getattr(server, 'parsed_model_list', [])
     model_list_fetch_event = getattr(server, 'model_list_fetch_event', None)
-    
+
     logger.info("--- (新) 处理初始模型状态, localStorage 和 isAdvancedOpen ---")
     needs_reload_and_storage_update = False
     reason_for_reload = ""
-    
+
     try:
+        # 首先检查页面是否仍然有效
+        try:
+            is_closed = page.is_closed()
+            if asyncio.iscoroutine(is_closed):
+                is_closed = await is_closed
+            if is_closed:
+                logger.error("❌ 页面已关闭，无法处理初始模型状态")
+                return
+        except Exception as page_check_err:
+            logger.error(f"❌ 检查页面状态时出错: {page_check_err}")
+            return
+
+        # 检查页面是否可以执行JavaScript
+        try:
+            await page.evaluate("() => true")
+        except Exception as js_test_err:
+            logger.error(f"❌ 页面无法执行JavaScript，可能已断开连接: {js_test_err}")
+            return
+
         initial_prefs_str = await page.evaluate("() => localStorage.getItem('aiStudioUserPreference')")
         if not initial_prefs_str:
             needs_reload_and_storage_update = True
@@ -526,8 +545,20 @@ async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = Fals
     current_ai_studio_model_id = getattr(server, 'current_ai_studio_model_id', None)
     parsed_model_list = getattr(server, 'parsed_model_list', [])
     model_list_fetch_event = getattr(server, 'model_list_fetch_event', None)
-    
+
     try:
+        # 首先检查页面是否仍然有效
+        try:
+            is_closed = page.is_closed()
+            if asyncio.iscoroutine(is_closed):
+                is_closed = await is_closed
+            if is_closed:
+                logger.error("   ❌ 页面已关闭，无法从页面显示设置模型")
+                return
+        except Exception as page_check_err:
+            logger.error(f"   ❌ 检查页面状态时出错: {page_check_err}")
+            return
+
         logger.info("   尝试从页面显示元素读取当前模型名称...")
         model_name_locator = page.locator('mat-select[data-test-ms-model-selector] div.model-option-content span.gmat-body-medium')
         displayed_model_name_from_page_raw = await model_name_locator.first.inner_text(timeout=7000)

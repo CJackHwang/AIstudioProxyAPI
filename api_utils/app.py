@@ -146,11 +146,15 @@ async def _initialize_browser_and_page():
         server.logger.info(f"Connected to browser: {server.browser_instance.version}")
         
         server.page_instance, server.is_page_ready = await _initialize_page_logic(server.browser_instance)
-        if server.is_page_ready:
-            await _handle_initial_model_state_and_storage(server.page_instance)
-            server.logger.info("Page initialized successfully.")
+        if server.is_page_ready and server.page_instance and not server.page_instance.is_closed():
+            try:
+                await _handle_initial_model_state_and_storage(server.page_instance)
+                server.logger.info("Page initialized successfully.")
+            except Exception as model_state_err:
+                server.logger.error(f"Model state initialization failed: {model_state_err}")
+                # 页面初始化成功但模型状态处理失败，仍然认为页面可用
         else:
-            server.logger.error("Page initialization failed.")
+            server.logger.error("Page initialization failed or page is closed.")
     
     if not server.model_list_fetch_event.is_set():
         server.model_list_fetch_event.set()

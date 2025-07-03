@@ -13,7 +13,7 @@ from playwright.async_api import Page as AsyncPage, Browser as AsyncBrowser, Bro
 # 导入配置和模型
 from config import *
 from models import ClientDisconnectedError
-from .resource_manager import get_resource_manager
+from .resource_manager import get_resource_manager, BrowserResourceManager
 
 logger = logging.getLogger("AIStudioProxyServer")
 
@@ -274,7 +274,7 @@ async def _initialize_page_logic(browser: AsyncBrowser):
         raise
 
 
-async def _initialize_page_with_resource_manager(resource_manager: 'BrowserResourceManager'):
+async def _initialize_page_with_resource_manager(resource_manager: BrowserResourceManager):
     """使用资源管理器初始化页面"""
     storage_state_path_to_use: Optional[str] = None
     launch_mode = os.environ.get('LAUNCH_MODE', 'debug')
@@ -328,13 +328,35 @@ async def _initialize_page_with_resource_manager(resource_manager: 'BrowserResou
     context_options['ignore_https_errors'] = True
     logger.info("   (浏览器上下文将忽略 HTTPS 错误)")
 
-    # 使用资源管理器创建上下文
-    async with resource_manager.create_context(**context_options) as temp_context:
+    # 创建持久的浏览器上下文（不使用上下文管理器，因为需要保持页面活跃）
+    if not resource_manager.browser:
+        raise RuntimeError("浏览器未连接，无法创建上下文")
+
+    # 安全地检查浏览器连接状态
+    try:
+        is_connected = resource_manager.browser.is_connected()
+        if asyncio.iscoroutine(is_connected):
+            is_connected = await is_connected
+        if not is_connected:
+            raise RuntimeError("浏览器未连接，无法创建上下文")
+    except Exception as e:
+        raise RuntimeError(f"检查浏览器连接状态失败: {e}")
+
+    temp_context = await resource_manager.browser.new_context(**context_options)
+    async with resource_manager._lock:
+        resource_manager._contexts.add(temp_context)
+    logger.info("✅ 浏览器上下文已创建（持久模式）")
+
+    try:
         # 设置网络拦截和脚本注入
         await _setup_network_interception_and_scripts(temp_context)
 
-        # 在上下文管理器内部进行页面操作
+        # 在上下文中进行页面操作
         return await _initialize_page_in_context(temp_context, loop)
+    except Exception as e:
+        # 如果初始化失败，清理上下文
+        await resource_manager._close_context_safe(temp_context)
+        raise
 
 
 async def _initialize_page_in_context(temp_context: AsyncBrowserContext, loop) -> Tuple[AsyncPage, bool]:
@@ -374,6 +396,12 @@ async def _initialize_page_in_context(temp_context: AsyncBrowserContext, loop) -
         logger.info(f"-> 未找到合适的现有页面，正在打开新页面并导航到 {target_full_url}...")
         found_page = await temp_context.new_page()
         if found_page:
+            # 将页面注册到资源管理器但不自动关闭
+            from .resource_manager import get_resource_manager
+            resource_manager = get_resource_manager()
+            async with resource_manager._lock:
+                resource_manager._pages.add(found_page)
+            logger.info("✅ 页面已创建并注册到资源管理器（持久模式）")
             logger.info(f"   为新创建的页面添加模型列表响应监听器 (导航前)。")
             found_page.on("response", _handle_model_list_response)
         try:
