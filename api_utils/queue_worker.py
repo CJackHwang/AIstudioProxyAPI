@@ -5,18 +5,71 @@
 
 import asyncio
 import time
+import logging
+from typing import Optional, Dict, Any, List, Set
 from fastapi import HTTPException
+
+from models import ClientDisconnectedError
+from .state_manager import get_state_manager
+
+
+class StreamingIntervalController:
+    """流式请求间隔控制器，确保并发安全"""
+
+    def __init__(self):
+        self._lock = asyncio.Lock()
+        self._last_request_completion_time = 0
+        self._was_last_request_streaming = False
+        self._min_interval = 1.0  # 最小间隔时间（秒）
+        self._default_delay = 0.5  # 默认延迟时间（秒）
+
+    async def should_delay(self, is_streaming_request: bool) -> float:
+        """检查是否需要延迟，返回延迟时间"""
+        async with self._lock:
+            current_time = time.time()
+
+            # 只有当前请求是流式且上一个请求也是流式时才需要延迟
+            if (self._was_last_request_streaming and
+                is_streaming_request and
+                (current_time - self._last_request_completion_time < self._min_interval)):
+
+                delay_time = max(
+                    self._default_delay,
+                    self._min_interval - (current_time - self._last_request_completion_time)
+                )
+                return delay_time
+
+            return 0.0
+
+    async def mark_request_completed(self, was_streaming: bool):
+        """标记请求完成"""
+        async with self._lock:
+            self._last_request_completion_time = time.time()
+            self._was_last_request_streaming = was_streaming
+
+    async def reset(self):
+        """重置状态"""
+        async with self._lock:
+            self._last_request_completion_time = 0
+            self._was_last_request_streaming = False
+
+
+# 全局流式间隔控制器实例
+_streaming_controller: Optional[StreamingIntervalController] = None
+
+
+def get_streaming_controller() -> StreamingIntervalController:
+    """获取流式间隔控制器实例"""
+    global _streaming_controller
+    if _streaming_controller is None:
+        _streaming_controller = StreamingIntervalController()
+    return _streaming_controller
 
 
 
 async def queue_worker():
     """队列工作器，处理请求队列中的任务"""
-    # 导入全局变量
-    from server import (
-        logger, request_queue, processing_lock, model_switching_lock,
-        params_cache_lock
-    )
-
+    logger = logging.getLogger("AIStudioProxyServer")
     logger.info("--- 队列 Worker 已启动 ---")
 
     try:
@@ -33,35 +86,23 @@ async def queue_worker():
 
 async def _queue_worker_main_loop():
     """队列工作器主循环"""
-    # 导入全局变量
-    from server import (
-        logger, request_queue, processing_lock, model_switching_lock,
-        params_cache_lock
-    )
-    
-    # 检查并初始化全局变量
-    if request_queue is None:
-        logger.info("初始化 request_queue...")
-        from asyncio import Queue
-        request_queue = Queue()
-    
-    if processing_lock is None:
-        logger.info("初始化 processing_lock...")
-        from asyncio import Lock
-        processing_lock = Lock()
-    
-    if model_switching_lock is None:
-        logger.info("初始化 model_switching_lock...")
-        from asyncio import Lock
-        model_switching_lock = Lock()
-    
-    if params_cache_lock is None:
-        logger.info("初始化 params_cache_lock...")
-        from asyncio import Lock
-        params_cache_lock = Lock()
-    
-    was_last_request_streaming = False
-    last_request_completion_time = 0
+    logger = logging.getLogger("AIStudioProxyServer")
+    state_manager = get_state_manager()
+    streaming_controller = get_streaming_controller()
+
+    # 确保锁和队列已初始化
+    await state_manager.initialize_locks_and_queues()
+
+    # 获取锁和队列
+    request_queue = await state_manager.get_request_queue()
+    processing_lock = await state_manager.get_processing_lock()
+    model_switching_lock = await state_manager.get_model_switching_lock()
+    params_cache_lock = await state_manager.get_params_cache_lock()
+
+    if not all([request_queue, processing_lock, model_switching_lock, params_cache_lock]):
+        raise RuntimeError("无法获取必要的锁和队列")
+
+    logger.info("队列工作器主循环开始运行...")
     
     while True:
         request_item = None
@@ -141,10 +182,9 @@ async def _queue_worker_main_loop():
                 request_queue.task_done()
                 continue
             
-            # 流式请求间隔控制
-            current_time = time.time()
-            if was_last_request_streaming and is_streaming_request and (current_time - last_request_completion_time < 1.0):
-                delay_time = max(0.5, 1.0 - (current_time - last_request_completion_time))
+            # 流式请求间隔控制（使用线程安全的控制器）
+            delay_time = await streaming_controller.should_delay(is_streaming_request)
+            if delay_time > 0:
                 logger.info(f"[{req_id}] (Worker) 连续流式请求，添加 {delay_time:.2f}s 延迟...")
                 await asyncio.sleep(delay_time)
             
@@ -352,8 +392,8 @@ async def _queue_worker_main_loop():
             except Exception as clear_err:
                 logger.error(f"[{req_id}] (Worker) 清空操作时发生错误: {clear_err}", exc_info=True)
 
-            was_last_request_streaming = is_streaming_request
-            last_request_completion_time = time.time()
+            # 更新流式间隔控制器状态
+            await streaming_controller.mark_request_completed(is_streaming_request)
             
         except asyncio.CancelledError:
             logger.info("--- 队列 Worker 被取消 ---")

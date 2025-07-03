@@ -77,21 +77,24 @@ async def _analyze_model_requirements(req_id: str, context: dict, request: ChatC
     requested_model = request.model
     
     if requested_model and requested_model != MODEL_NAME:
-        requested_model_id = requested_model.split('/')[-1]
-        logger.info(f"[{req_id}] 请求使用模型: {requested_model_id}")
-        
-        if parsed_model_list:
-            valid_model_ids = [m.get("id") for m in parsed_model_list]
-            if requested_model_id not in valid_model_ids:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"[{req_id}] Invalid model '{requested_model_id}'. Available models: {', '.join(valid_model_ids)}"
-                )
-        
-        context['model_id_to_use'] = requested_model_id
-        if current_ai_studio_model_id != requested_model_id:
-            context['needs_model_switching'] = True
-            logger.info(f"[{req_id}] 需要切换模型: 当前={current_ai_studio_model_id} -> 目标={requested_model_id}")
+        from .model_manager import get_model_manager
+        model_manager = get_model_manager()
+
+        try:
+            # 使用模型管理器验证模型请求
+            requested_model_id = await model_manager.validate_model_request(requested_model, req_id)
+            logger.info(f"[{req_id}] 请求使用模型: {requested_model_id}")
+
+            context['model_id_to_use'] = requested_model_id
+
+            # 检查是否需要切换模型
+            if await model_manager.needs_model_switch(requested_model_id):
+                context['needs_model_switching'] = True
+                current_model_id = await model_manager.get_current_model_id()
+                logger.info(f"[{req_id}] 需要切换模型: 当前={current_model_id} -> 目标={requested_model_id}")
+
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     
     return context
 
@@ -196,37 +199,32 @@ async def _handle_model_switching(req_id: str, context: dict, check_client_disco
     """处理模型切换逻辑"""
     if not context['needs_model_switching']:
         return context
-    
+
     logger = context['logger']
     page = context['page']
-    model_switching_lock = context['model_switching_lock']
     model_id_to_use = context['model_id_to_use']
-    
-    import server
-    
-    async with model_switching_lock:
-        if server.current_ai_studio_model_id != model_id_to_use:
-            logger.info(f"[{req_id}] 准备切换模型: {server.current_ai_studio_model_id} -> {model_id_to_use}")
-            switch_success = await switch_ai_studio_model(page, model_id_to_use, req_id)
-            if switch_success:
-                server.current_ai_studio_model_id = model_id_to_use
-                context['model_actually_switched'] = True
-                context['current_ai_studio_model_id'] = model_id_to_use
-                logger.info(f"[{req_id}] ✅ 模型切换成功: {server.current_ai_studio_model_id}")
-            else:
-                await _handle_model_switch_failure(req_id, page, model_id_to_use, server.current_ai_studio_model_id, logger)
-    
+
+    from .model_manager import get_model_manager
+    model_manager = get_model_manager()
+
+    # 使用模型管理器进行安全的模型切换
+    switch_success = await model_manager.switch_model_safe(page, model_id_to_use, req_id)
+
+    if switch_success:
+        context['model_actually_switched'] = True
+        context['current_ai_studio_model_id'] = model_id_to_use
+        logger.info(f"[{req_id}] ✅ 模型切换成功: {model_id_to_use}")
+    else:
+        await _handle_model_switch_failure(req_id, page, model_id_to_use, await model_manager.get_current_model_id(), logger)
+
     return context
 
 
 async def _handle_model_switch_failure(req_id: str, page: AsyncPage, model_id_to_use: str, model_before_switch: str, logger) -> None:
     """处理模型切换失败的情况"""
-    import server
-    
     logger.warning(f"[{req_id}] ❌ 模型切换至 {model_id_to_use} 失败。")
-    # 尝试恢复全局状态
-    server.current_ai_studio_model_id = model_before_switch
-    
+
+    # 模型管理器已经处理了状态恢复，这里只需要抛出异常
     raise HTTPException(
         status_code=422,
         detail=f"[{req_id}] 未能切换到模型 '{model_id_to_use}'。请确保模型可用。"
@@ -236,18 +234,19 @@ async def _handle_model_switch_failure(req_id: str, page: AsyncPage, model_id_to
 async def _handle_parameter_cache(req_id: str, context: dict) -> None:
     """处理参数缓存"""
     logger = context['logger']
-    params_cache_lock = context['params_cache_lock']
-    page_params_cache = context['page_params_cache']
     current_ai_studio_model_id = context['current_ai_studio_model_id']
     model_actually_switched = context['model_actually_switched']
-    
-    async with params_cache_lock:
-        cached_model_for_params = page_params_cache.get("last_known_model_id_for_params")
-        
-        if model_actually_switched or (current_ai_studio_model_id != cached_model_for_params):
-            logger.info(f"[{req_id}] 模型已更改，参数缓存失效。")
-            page_params_cache.clear()
-            page_params_cache["last_known_model_id_for_params"] = current_ai_studio_model_id
+
+    from .state_manager import get_state_manager
+    state_manager = get_state_manager()
+
+    # 使用状态管理器的线程安全缓存操作
+    cached_model_for_params = await state_manager.get_cache_value("last_known_model_id_for_params")
+
+    if model_actually_switched or (current_ai_studio_model_id != cached_model_for_params):
+        logger.info(f"[{req_id}] 模型已更改，参数缓存失效。")
+        await state_manager.clear_cache()
+        await state_manager.set_cache_value("last_known_model_id_for_params", current_ai_studio_model_id)
 
 
 async def _prepare_and_validate_request(req_id: str, request: ChatCompletionRequest, check_client_disconnected: Callable) -> str:

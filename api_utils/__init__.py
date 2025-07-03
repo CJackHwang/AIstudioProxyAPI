@@ -67,6 +67,23 @@ from .graceful_shutdown import (
     setup_default_shutdown_handlers
 )
 
+# 全局状态管理器
+from .state_manager import (
+    GlobalStateManager,
+    get_state_manager,
+    reset_global_state
+)
+
+# 模型管理器
+from .model_manager import (
+    ModelManager,
+    get_model_manager,
+    switch_model_safe,
+    get_current_model_safe,
+    validate_model_request_safe,
+    is_model_switch_needed
+)
+
 __all__ = [
     # 应用初始化
     'create_app',
@@ -110,5 +127,16 @@ __all__ = [
     'add_shutdown_handler',
     'graceful_shutdown',
     'install_signal_handlers',
-    'setup_default_shutdown_handlers'
+    'setup_default_shutdown_handlers',
+    # 全局状态管理器
+    'GlobalStateManager',
+    'get_state_manager',
+    'reset_global_state',
+    # 模型管理器
+    'ModelManager',
+    'get_model_manager',
+    'switch_model_safe',
+    'get_current_model_safe',
+    'validate_model_request_safe',
+    'is_model_switch_needed'
 ]
