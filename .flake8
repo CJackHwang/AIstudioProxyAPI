@@ -1,0 +1,36 @@
+[flake8]
+max-line-length = 100
+max-complexity = 10
+select = E,W,F,C
+ignore = 
+    # E203: whitespace before ':' (conflicts with black)
+    E203,
+    # E501: line too long (handled by black)
+    E501,
+    # W503: line break before binary operator (conflicts with black)
+    W503,
+    # F401: imported but unused (handled by isort and mypy)
+    F401
+
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    .env,
+    deprecated_javascript_version,
+    errors_py,
+    logs,
+    build,
+    dist,
+    *.egg-info
+
+per-file-ignores =
+    # Allow unused imports in __init__.py files
+    __init__.py:F401
+    # Allow long lines in configuration files
+    config/*.py:E501
+    # Allow complex functions in main server file
+    server.py:C901
+
+count = True
+statistics = True

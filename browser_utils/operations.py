@@ -455,20 +455,12 @@ async def save_error_snapshot(error_name: str = 'error'):
         
         try:
             content = await page_to_snapshot.content()
-            f = None
             try:
-                f = open(html_path, 'w', encoding='utf-8')
-                f.write(content)
+                with open(html_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
                 logger.info(f"{log_prefix}   HTML 已保存到: {html_path}")
             except Exception as write_err:
                 logger.error(f"{log_prefix}   保存 HTML 失败 ({base_error_name}): {write_err}")
-            finally:
-                if f:
-                    try:
-                        f.close()
-                        logger.debug(f"{log_prefix}   HTML 文件已正确关闭")
-                    except Exception as close_err:
-                        logger.error(f"{log_prefix}   关闭 HTML 文件时出错: {close_err}")
         except Exception as html_err:
             logger.error(f"{log_prefix}   获取页面内容失败 ({base_error_name}): {html_err}")
     except Exception as dir_err:
