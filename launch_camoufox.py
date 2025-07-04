@@ -617,6 +617,18 @@ if __name__ == "__main__":
                 "exclude_addons": [DefaultAddons.UBO], # Assuming DefaultAddons.UBO exists
             }
 
+            # 无头模式修复：设置固定屏幕配置解决 browserforge 兼容性问题
+            if internal_mode_arg in ['headless', 'virtual_headless']:
+                try:
+                    from browserforge.fingerprints import Screen
+                    launch_args_for_internal_camoufox["screen"] = Screen(
+                        max_width=1920, min_width=1920,
+                        max_height=1080, min_height=1080
+                    )
+                    print(f"--- [内部Camoufox启动] ✅ 设置固定屏幕配置: 1920x1080 ---", flush=True)
+                except Exception as screen_err:
+                    print(f"--- [内部Camoufox启动] ⚠️  设置屏幕配置失败: {screen_err} ---", flush=True)
+
             # 正确添加代理的方式
             if camoufox_proxy_internal: # 如果代理字符串存在且不为空
                 launch_args_for_internal_camoufox["proxy"] = {"server": camoufox_proxy_internal}
