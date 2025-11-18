@@ -14,7 +14,8 @@ from config import (
     CLEAR_CHAT_BUTTON_SELECTOR, CLEAR_CHAT_CONFIRM_BUTTON_SELECTOR, OVERLAY_SELECTOR,
     PROMPT_TEXTAREA_SELECTOR, RESPONSE_CONTAINER_SELECTOR, RESPONSE_TEXT_SELECTOR,
     EDIT_MESSAGE_BUTTON_SELECTOR,USE_URL_CONTEXT_SELECTOR,UPLOAD_BUTTON_SELECTOR,
-    ENABLE_THINKING_MODE_TOGGLE_SELECTOR, SET_THINKING_BUDGET_TOGGLE_SELECTOR, THINKING_BUDGET_INPUT_SELECTOR,
+    ENABLE_THINKING_MODE_TOGGLE_SELECTOR, THINKING_LEVEL_DROPDOWN_SELECTOR,
+    SET_THINKING_BUDGET_TOGGLE_SELECTOR, THINKING_BUDGET_INPUT_SELECTOR,
     GROUNDING_WITH_GOOGLE_SEARCH_TOGGLE_SELECTOR
 )
 from config import (
@@ -118,6 +119,14 @@ class PageController:
             should_be_enabled=True,
             check_client_disconnected=check_client_disconnected
         )
+
+        # --- FIX START: Gemini 3.0 Bypass ---
+        # Check if we are on the new Gemini 3.0 UI
+        new_thinking_dropdown = self.page.locator(THINKING_LEVEL_DROPDOWN_SELECTOR)
+        if await new_thinking_dropdown.is_visible(timeout=500):
+            self.logger.info(f"[{self.req_id}] 检测到 Gemini 3.0+ UI (Thinking Level Dropdown). 跳过预算滑块配置。")
+            return
+        # --- FIX END ---
 
         # 场景2: 开启思考，不限制预算
         if not directive.budget_enabled:
@@ -280,11 +289,22 @@ class PageController:
         返回:
             bool: 是否成功设置到期望状态（如果开关不存在或被禁用，返回False）
         """
-        toggle_selector = ENABLE_THINKING_MODE_TOGGLE_SELECTOR
+        legacy_toggle_selector = ENABLE_THINKING_MODE_TOGGLE_SELECTOR
+        new_dropdown_selector = THINKING_LEVEL_DROPDOWN_SELECTOR
+
         self.logger.info(f"[{self.req_id}] 控制主思考开关，期望状态: {'开启' if should_be_enabled else '关闭'}...")
 
         try:
-            toggle_locator = self.page.locator(toggle_selector)
+            # 1. 优先检查新版 UI (Gemini 3.0+ Dropdown)
+            # 使用极短超时 (500ms) 避免在旧版 UI 上造成延迟
+            new_dropdown_locator = self.page.locator(new_dropdown_selector)
+            if await new_dropdown_locator.is_visible(timeout=500):
+                self.logger.info(f"[{self.req_id}] 检测到 Gemini 3.0+ UI (Thinking Level Dropdown)。")
+                # 存在 Dropdown 即意味着处于新版 UI，此时不要尝试去点击旧版 Toggle
+                return True
+
+            # 2. 检查旧版 UI (Toggle)
+            toggle_locator = self.page.locator(legacy_toggle_selector)
 
             # 等待元素可见（5秒超时）
             await expect_async(toggle_locator).to_be_visible(timeout=5000)
