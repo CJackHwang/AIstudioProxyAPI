@@ -13,6 +13,7 @@ from .error_utils import (
     processing_timeout,
     server_error,
 )
+from models import QuotaExceededError
 
 
 
@@ -364,6 +365,12 @@ async def queue_worker() -> None:
             if result_future and not result_future.done():
                 result_future.cancel("Worker cancelled")
             break
+        except QuotaExceededError as qe:
+            logger.error(f"[{req_id}] ⛔ CRITICAL: {qe}")
+            if result_future and not result_future.done():
+                # Mark this auth profile as 'exhausted' (optional future task).
+                # Return 429 (Too Many Requests) to the client.
+                result_future.set_exception(HTTPException(status_code=429, detail="Account quota exceeded. Please try a different account."))
         except Exception as e:
             logger.error(f"[{req_id}] (Worker) ❌ 处理请求时发生意外错误: {e}", exc_info=True)
             if result_future and not result_future.done():

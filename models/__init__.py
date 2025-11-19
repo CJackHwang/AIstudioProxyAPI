@@ -8,7 +8,7 @@ from .chat import (
 )
 
 # 异常类
-from .exceptions import ClientDisconnectedError
+from .exceptions import ClientDisconnectedError, QuotaExceededError
 
 # 日志工具类
 from .logging import (
@@ -27,6 +27,7 @@ __all__ = [
     
     # 异常
     'ClientDisconnectedError',
+    'QuotaExceededError',
     
     # 日志工具
     'StreamToLogger',

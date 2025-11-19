@@ -23,8 +23,8 @@ from config import (
     DEFAULT_TEMPERATURE, DEFAULT_MAX_OUTPUT_TOKENS, DEFAULT_STOP_SEQUENCES, DEFAULT_TOP_P,
     ENABLE_URL_CONTEXT, ENABLE_THINKING_BUDGET, DEFAULT_THINKING_BUDGET, ENABLE_GOOGLE_SEARCH
 )
-from models import ClientDisconnectedError
-from .operations import save_error_snapshot, _wait_for_response_completion, _get_final_response_content
+from models import ClientDisconnectedError, QuotaExceededError
+from .operations import save_error_snapshot, _wait_for_response_completion, _get_final_response_content, check_quota_limit
 from .initialization import enable_temporary_chat_mode
 from .thinking_normalizer import normalize_reasoning_effort, format_directive_log
 
@@ -998,6 +998,10 @@ class PageController:
                     await submit_button_locator.click(timeout=5000)
                     self.logger.info(f"[{self.req_id}] ✅ 提交按钮点击完成。")
                     button_clicked = True
+                    
+                    # Immediate Check: Call check_quota_limit() immediately after clicking.
+                    await check_quota_limit(self.page, self.req_id)
+
                 except Exception as click_err:
                     self.logger.error(f"[{self.req_id}] ❌ 提交按钮点击失败: {click_err}")
                     # Don't snapshot here, retry mechanism handles it or next methods try
@@ -1023,6 +1027,9 @@ class PageController:
                 
                 if isinstance(e_input_submit, ClientDisconnectedError):
                     raise # Don't retry if client disconnected
+
+                if isinstance(e_input_submit, QuotaExceededError):
+                    raise # Don't retry if quota exceeded
                 
                 if attempt < max_retries - 1:
                     self.logger.info(f"[{self.req_id}] ⚠️ 遇到错误，尝试刷新页面并重试...")
@@ -1333,7 +1340,7 @@ class PageController:
             self.logger.warning(f"[{self.req_id}] 组合键提交失败: {combo_err}")
             return False
 
-    async def get_response(self, check_client_disconnected: Callable) -> str:
+    async def get_response(self, check_client_disconnected: Callable, prompt_length: int, timeout: Optional[float] = None) -> str:
         """获取响应内容。"""
         self.logger.info(f"[{self.req_id}] 等待并获取响应...")
 
@@ -1353,7 +1360,8 @@ class PageController:
 
             self.logger.info(f"[{self.req_id}] 等待响应完成...")
             completion_detected = await _wait_for_response_completion(
-                self.page, input_field_locator, submit_button_locator, edit_button_locator, self.req_id, check_client_disconnected, None
+                self.page, input_field_locator, submit_button_locator, edit_button_locator, self.req_id, check_client_disconnected, None, prompt_length=prompt_length,
+                timeout=timeout
             )
 
             if not completion_detected:
