@@ -32,6 +32,8 @@ async def main():
             logging.StreamHandler()
         ]
     )
+    logging.getLogger('asyncio').setLevel(logging.ERROR)
+    logging.getLogger('websockets').setLevel(logging.ERROR)
     
     logger = logging.getLogger('main')
 

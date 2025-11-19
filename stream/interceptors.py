@@ -22,6 +22,8 @@ class HttpInterceptor:
                 logging.StreamHandler()
             ]
         )
+        logging.getLogger('asyncio').setLevel(logging.ERROR)
+        logging.getLogger('websockets').setLevel(logging.ERROR)
     
     @staticmethod
     def should_intercept(host, path):

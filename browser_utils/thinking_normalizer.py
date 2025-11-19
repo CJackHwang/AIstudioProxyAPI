@@ -123,22 +123,11 @@ def _parse_budget_value(reasoning_effort: Any) -> Optional[int]:
     if isinstance(reasoning_effort, int) and reasoning_effort > 0:
         return reasoning_effort
 
-    # 如果是字符串，尝试匹配预设值或解析为数字
+    # 如果是字符串，尝试解析为数字
     if isinstance(reasoning_effort, str):
         effort_str = reasoning_effort.strip().lower()
 
-        # 预设值映射
-        effort_map = {
-            "low": 10923,
-            "medium": 21845,
-            "high": 32768,
-        }
-
-        # 先尝试预设值
-        if effort_str in effort_map:
-            return effort_map[effort_str]
-
-        # 再尝试解析为数字
+        # 解析为数字
         try:
             value = int(effort_str)
             if value > 0:
