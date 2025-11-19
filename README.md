@@ -1,199 +1,198 @@
 # AI Studio Proxy API
 
-这是一个基于 Python 的代理服务器，用于将 Google AI Studio 的网页界面转换为 OpenAI 兼容的 API。通过 Camoufox (反指纹检测的 Firefox) 和 Playwright 自动化，提供稳定的 API 访问。
+This is a Python-based proxy server that converts Google AI Studio's web interface into an OpenAI-compatible API. Through Camoufox (anti-fingerprinting Firefox) and Playwright automation, it provides stable API access.
 
 [![Star History Chart](https://api.star-history.com/svg?repos=CJackHwang/AIstudioProxyAPI&type=Date)](https://www.star-history.com/#CJackHwang/AIstudioProxyAPI&Date)
 
 This project is generously sponsored by ZMTO. Visit their website: [https://zmto.com/](https://zmto.com/)
 
-本项目由 ZMTO 慷慨赞助服务器支持。访问他们的网站：[https://zmto.com/](https://zmto.com/)
+This project is generously sponsored by ZMTO with server support. Visit their website: [https://zmto.com/](https://zmto.com/)
 
 ---
 
-## 致谢 (Acknowledgements)
+## Acknowledgements
 
-本项目的诞生与发展，离不开以下个人、组织和社区的慷慨支持与智慧贡献：
+The birth and development of this project cannot be separated from the generous support and wisdom contributions of the following individuals, organizations, and communities:
 
-- **项目发起与主要开发**: @CJackHwang ([https://github.com/CJackHwang](https://github.com/CJackHwang))
-- **功能完善、页面操作优化思路贡献**: @ayuayue ([https://github.com/ayuayue](https://github.com/ayuayue))
-- **实时流式功能优化与完善**: @luispater ([https://github.com/luispater](https://github.com/luispater))
-- **3400+行主文件项目重构伟大贡献**: @yattin (Holt) ([https://github.com/yattin](https://github.com/yattin))
-- **项目后期高质量维护**: @Louie （[https://github.com/NikkeTryHard](https://github.com/NikkeTryHard)）
-- **社区支持与灵感碰撞**: 特别感谢 [Linux.do 社区](https://linux.do/) 成员们的热烈讨论、宝贵建议和问题反馈，你们的参与是项目前进的重要动力。
+- **Project initiation and main development**: @CJackHwang ([https://github.com/CJackHwang](https://github.com/CJackHwang))
+- **Feature enhancement and page operation optimization ideas**: @ayuayue ([https://github.com/ayuayue](https://github.com/ayuayue))
+- **Real-time streaming functionality optimization and improvement**: @luispater ([https://github.com/luispater](https://github.com/luispater))
+- **3400+ line main file project refactoring great contribution**: @yattin (Holt) ([https://github.com/yattin](https://github.com/yattin))
+- **High-quality project maintenance in later stages**: @Louie ([https://github.com/NikkeTryHard](https://github.com/NikkeTryHard))
+- **Community support and inspiration**: Special thanks to the [Linux.do Community](https://linux.do/) members for their enthusiastic discussions, valuable suggestions, and problem feedback - your participation is an important driving force for the project's progress.
 
-同时，我们衷心感谢所有通过提交 Issue、提供建议、分享使用体验、贡献代码修复等方式为本项目默默奉献的每一位朋友。是你们共同的努力，让这个项目变得更好！
+At the same time, we sincerely thank every friend who has silently contributed to this project through submitting Issues, providing suggestions, sharing usage experiences, contributing code fixes, and other ways. It is your joint efforts that make this project better!
 
 ---
 
-**这是当前维护的 Python 版本。不再维护的 Javascript 版本请参见 [`deprecated_javascript_version/README.md`](deprecated_javascript_version/README.md)。**
+**This is the currently maintained Python version. The deprecated JavaScript version can be found in [`deprecated_javascript_version/README.md`](deprecated_javascript_version/README.md).**
 
-## 📊 兼容性矩阵
+## 📊 Compatibility Matrix
 
-| 组件 | 版本要求 | 推荐版本 | 说明 |
-|------|---------|---------|------|
-| **Python** | ≥3.9, <4.0 | 3.10+ 或 3.11+ | Docker 环境使用 3.10 |
-| **操作系统** | Windows / macOS / Linux | - | 完全跨平台支持，Docker 支持 x86_64 和 ARM64 |
-| **内存** | ≥2GB | ≥4GB | 浏览器自动化需要 |
-| **网络** | 稳定互联网连接 | - | 可配置代理访问 Google AI Studio |
-| **依赖管理** | Poetry | 最新版本 | 现代化 Python 依赖管理工具 |
-| **类型检查** | Pyright (可选) | 最新版本 | 用于开发时类型检查和 IDE 支持 |
+| Component | Version Requirements | Recommended Version | Description |
+|----------|---------------------|---------------------|-------------|
+| **Python** | ≥3.9, <4.0 | 3.10+ or 3.11+ | Docker environment uses 3.10 |
+| **Operating System** | Windows / macOS / Linux | - | Full cross-platform support, Docker supports x86_64 and ARM64 |
+| **Memory** | ≥2GB | ≥4GB | Browser automation required |
+| **Network** | Stable internet connection | - | Configurable proxy to access Google AI Studio |
+| **Dependency Management** | Poetry | Latest version | Modern Python dependency management tool |
+| **Type Checking** | Pyright (optional) | Latest version | Used for type checking and IDE support during development |
 
+## System Requirements
 
-## 系统要求
+- **Python**: >=3.9, <4.0 (recommend 3.10+ for best performance, Docker environment uses 3.10)
+- **Dependency Management**: [Poetry](https://python-poetry.org/) (modern Python dependency management tool, replacement for traditional requirements.txt)
+- **Type Checking**: [Pyright](https://github.com/microsoft/pyright) (optional, used for type checking and IDE support during development)
+- **Operating System**: Windows, macOS, Linux (full cross-platform support, Docker deployment supports x86_64 and ARM64)
+- **Memory**: Recommend 2GB+ available memory (browser automation required)
+- **Network**: Stable internet connection to access Google AI Studio (proxy configuration supported)
 
-- **Python**: >=3.9, <4.0 (推荐 3.10+ 以获得最佳性能，Docker 环境使用 3.10)
-- **依赖管理**: [Poetry](https://python-poetry.org/) (现代化 Python 依赖管理工具，替代传统 requirements.txt)
-- **类型检查**: [Pyright](https://github.com/microsoft/pyright) (可选，用于开发时类型检查和 IDE 支持)
-- **操作系统**: Windows, macOS, Linux (完全跨平台支持，Docker 部署支持 x86_64 和 ARM64)
-- **内存**: 建议 2GB+ 可用内存 (浏览器自动化需要)
-- **网络**: 稳定的互联网连接访问 Google AI Studio (支持代理配置)
+## Main Features
 
-## 主要特性
+- **OpenAI Compatible API**: Supports `/v1/chat/completions` endpoint, fully compatible with OpenAI clients and third-party tools
+- **Three-Layer Streaming Response Mechanism**: Integrated streaming proxy → external Helper service → Playwright page interaction multiple guarantees
+- **Smart Model Switching**: Dynamically switch models in AI Studio through the `model` field in API requests
+- **Complete Parameter Control**: Supports all major parameters like `temperature`, `max_output_tokens`, `top_p`, `stop`, `reasoning_effort`
+- **Anti-Fingerprinting Detection**: Uses Camoufox browser to reduce the risk of being detected as automated scripts
+- **Script Injection Feature v3.0**: Uses Playwright native network interception, supports Tampermonkey script dynamic mounting, 100% reliable 🆕
+- **Modern Web UI**: Built-in testing interface, supports real-time chat, status monitoring, hierarchical API key management
+- **Graphical Interface Launcher**: Provides feature-rich GUI launcher, simplifying configuration and process management
+- **Flexible Authentication System**: Supports optional API key authentication, fully compatible with OpenAI standard Bearer token format
+- **Modular Architecture**: Clear modular separation design, api_utils/, browser_utils/, config/ and other independent modules
+- **Unified Configuration Management**: Based on `.env` file unified configuration, supports environment variable overrides, Docker compatible
+- **Modern Development Tools**: Poetry dependency management + Pyright type checking, providing excellent development experience
 
-- **OpenAI 兼容 API**: 支持 `/v1/chat/completions` 端点，完全兼容 OpenAI 客户端和第三方工具
-- **三层流式响应机制**: 集成流式代理 → 外部 Helper 服务 → Playwright 页面交互的多重保障
-- **智能模型切换**: 通过 API 请求中的 `model` 字段动态切换 AI Studio 中的模型
-- **完整参数控制**: 支持 `temperature`、`max_output_tokens`、`top_p`、`stop`、`reasoning_effort` 等所有主要参数
-- **反指纹检测**: 使用 Camoufox 浏览器降低被检测为自动化脚本的风险
-- **脚本注入功能 v3.0**: 使用 Playwright 原生网络拦截，支持油猴脚本动态挂载，100%可靠 🆕
-- **现代化 Web UI**: 内置测试界面，支持实时聊天、状态监控、分级 API 密钥管理
-- **图形界面启动器**: 提供功能丰富的 GUI 启动器，简化配置和进程管理
-- **灵活认证系统**: 支持可选的 API 密钥认证，完全兼容 OpenAI 标准的 Bearer token 格式
-- **模块化架构**: 清晰的模块分离设计，api_utils/、browser_utils/、config/ 等独立模块
-- **统一配置管理**: 基于 `.env` 文件的统一配置方式，支持环境变量覆盖，Docker 兼容
-- **现代化开发工具**: Poetry 依赖管理 + Pyright 类型检查，提供优秀的开发体验
-
-## 系统架构
+## System Architecture
 
 ```mermaid
 graph TD
-    subgraph "用户端 (User End)"
-        User["用户 (User)"]
+    subgraph "User End"
+        User["User"]
         WebUI["Web UI (Browser)"]
-        API_Client["API 客户端 (API Client)"]
+        API_Client["API Client"]
     end
 
-    subgraph "启动与配置 (Launch & Config)"
-        GUI_Launch["gui_launcher.py (图形启动器)"]
-        CLI_Launch["launch_camoufox.py (命令行启动)"]
-        EnvConfig[".env (统一配置)"]
+    subgraph "Launch & Config"
+        GUI_Launch["gui_launcher.py (GUI Launcher)"]
+        CLI_Launch["launch_camoufox.py (Command Line Launch)"]
+        EnvConfig[".env (Unified Configuration)"]
         KeyFile["auth_profiles/key.txt (API Keys)"]
-        ConfigDir["config/ (配置模块)"]
+        ConfigDir["config/ (Configuration Module)"]
     end
 
-    subgraph "核心应用 (Core Application)"
-        FastAPI_App["api_utils/app.py (FastAPI 应用)"]
-        Routes["api_utils/routers/* (路由处理)"]
-        RequestProcessor["api_utils/request_processor.py (请求处理)"]
-        AuthUtils["api_utils/auth_utils.py (认证管理)"]
-        PageController["browser_utils/page_controller.py (页面控制)"]
-        ScriptManager["browser_utils/script_manager.py (脚本注入)"]
-        ModelManager["browser_utils/model_management.py (模型管理)"]
-        StreamProxy["stream/ (流式代理服务器)"]
+    subgraph "Core Application"
+        FastAPI_App["api_utils/app.py (FastAPI Application)"]
+        Routes["api_utils/routers/* (Route Handling)"]
+        RequestProcessor["api_utils/request_processor.py (Request Processing)"]
+        AuthUtils["api_utils/auth_utils.py (Authentication Management)"]
+        PageController["browser_utils/page_controller.py (Page Control)"]
+        ScriptManager["browser_utils/script_manager.py (Script Injection)"]
+        ModelManager["browser_utils/model_management.py (Model Management)"]
+        StreamProxy["stream/ (Streaming Proxy Server)"]
     end
 
-    subgraph "外部依赖 (External Dependencies)"
-        CamoufoxInstance["Camoufox 浏览器 (反指纹)"]
+    subgraph "External Dependencies"
+        CamoufoxInstance["Camoufox Browser (Anti-Fingerprinting)"]
         AI_Studio["Google AI Studio"]
-        UserScript["油猴脚本 (可选)"]
+        UserScript["Tampermonkey Script (Optional)"]
     end
 
-    User -- "运行 (Run)" --> GUI_Launch
-    User -- "运行 (Run)" --> CLI_Launch
-    User -- "访问 (Access)" --> WebUI
+    User -- "Run" --> GUI_Launch
+    User -- "Run" --> CLI_Launch
+    User -- "Access" --> WebUI
 
-    GUI_Launch -- "启动 (Starts)" --> CLI_Launch
-    CLI_Launch -- "启动 (Starts)" --> FastAPI_App
-    CLI_Launch -- "配置 (Configures)" --> StreamProxy
+    GUI_Launch -- "Starts" --> CLI_Launch
+    CLI_Launch -- "Starts" --> FastAPI_App
+    CLI_Launch -- "Configures" --> StreamProxy
 
-    API_Client -- "API 请求 (Request)" --> FastAPI_App
-    WebUI -- "聊天请求 (Chat Request)" --> FastAPI_App
+    API_Client -- "API Request" --> FastAPI_App
+    WebUI -- "Chat Request" --> FastAPI_App
 
-    FastAPI_App -- "读取配置 (Reads Config)" --> EnvConfig
-    FastAPI_App -- "使用路由 (Uses Routes)" --> Routes
-    AuthUtils -- "验证密钥 (Validates Key)" --> KeyFile
-    ConfigDir -- "提供设置 (Provides Settings)" --> EnvConfig
+    FastAPI_App -- "Reads Config" --> EnvConfig
+    FastAPI_App -- "Uses Routes" --> Routes
+    AuthUtils -- "Validates Key" --> KeyFile
+    ConfigDir -- "Provides Settings" --> EnvConfig
 
-    Routes -- "处理请求 (Processes Request)" --> RequestProcessor
-    Routes -- "认证管理 (Auth Management)" --> AuthUtils
-    RequestProcessor -- "控制浏览器 (Controls Browser)" --> PageController
-    RequestProcessor -- "通过代理 (Uses Proxy)" --> StreamProxy
+    Routes -- "Processes Request" --> RequestProcessor
+    Routes -- "Auth Management" --> AuthUtils
+    RequestProcessor -- "Controls Browser" --> PageController
+    RequestProcessor -- "Uses Proxy" --> StreamProxy
 
-    PageController -- "模型管理 (Model Management)" --> ModelManager
-    PageController -- "脚本注入 (Script Injection)" --> ScriptManager
-    ScriptManager -- "加载脚本 (Loads Script)" --> UserScript
-    ScriptManager -- "增强功能 (Enhances)" --> CamoufoxInstance
-    PageController -- "自动化 (Automates)" --> CamoufoxInstance
-    CamoufoxInstance -- "访问 (Accesses)" --> AI_Studio
-    StreamProxy -- "转发请求 (Forwards Request)" --> AI_Studio
+    PageController -- "Model Management" --> ModelManager
+    PageController -- "Script Injection" --> ScriptManager
+    ScriptManager -- "Loads Script" --> UserScript
+    ScriptManager -- "Enhances" --> CamoufoxInstance
+    PageController -- "Automates" --> CamoufoxInstance
+    CamoufoxInstance -- "Accesses" --> AI_Studio
+    StreamProxy -- "Forwards Request" --> AI_Studio
 
-    AI_Studio -- "响应 (Response)" --> CamoufoxInstance
-    AI_Studio -- "响应 (Response)" --> StreamProxy
+    AI_Studio -- "Response" --> CamoufoxInstance
+    AI_Studio -- "Response" --> StreamProxy
 
-    CamoufoxInstance -- "返回数据 (Returns Data)" --> PageController
-    StreamProxy -- "返回数据 (Returns Data)" --> RequestProcessor
+    CamoufoxInstance -- "Returns Data" --> PageController
+    StreamProxy -- "Returns Data" --> RequestProcessor
 
-    FastAPI_App -- "API 响应 (Response)" --> API_Client
-    FastAPI_App -- "UI 响应 (Response)" --> WebUI
+    FastAPI_App -- "API Response" --> API_Client
+    FastAPI_App -- "UI Response" --> WebUI
 ```
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-推荐新用户按照 **[快速开始指南](docs/quick-start-guide.md)** 进行部署，预计 15-30 分钟即可完成。
+New users are recommended to follow the **[Quick Start Guide](docs/quick-start-guide.md)** for deployment, which should take 15-30 minutes to complete.
 
-### 三步快速部署
+### Three-Step Quick Deployment
 
 ```bash
-# 1️⃣ 克隆并安装
+# 1️⃣ Clone and install
 git clone https://github.com/CJackHwang/AIstudioProxyAPI.git
 cd AIstudioProxyAPI
-poetry install  # 自动创建虚拟环境并安装依赖
+poetry install  # Automatically creates virtual environment and installs dependencies
 
-# 2️⃣ 配置环境
+# 2️⃣ Configure environment
 cp .env.example .env
-nano .env  # 编辑配置（可选，默认配置即可使用）
+nano .env  # Edit configuration (optional, default configuration can be used)
 
-# 3️⃣ 首次认证并启动
-poetry run python launch_camoufox.py --debug  # 首次认证（需要登录 Google）
-# 认证成功后，按 Ctrl+C 停止，然后使用无头模式运行：
+# 3️⃣ Initial authentication and start
+poetry run python launch_camoufox.py --debug  # Initial authentication (requires Google login)
+# After successful authentication, press Ctrl+C to stop, then run in headless mode:
 poetry run python launch_camoufox.py --headless
 ```
 
-### 快速测试
+### Quick Test
 
 ```bash
-# 健康检查
+# Health check
 curl http://127.0.0.1:2048/health
 
-# 获取模型列表
+# Get model list
 curl http://127.0.0.1:2048/v1/models
 
-# 测试聊天（非流式）
+# Test chat (non-streaming)
 curl -X POST http://127.0.0.1:2048/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"gemini-2.5-pro","messages":[{"role":"user","content":"Hello"}]}'
 
-# 测试流式聊天
+# Test streaming chat
 curl -X POST http://127.0.0.1:2048/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"gemini-2.5-pro","messages":[{"role":"user","content":"讲个故事"}],"stream":true}' --no-buffer
+  -d '{"model":"gemini-2.5-pro","messages":[{"role":"user","content":"Tell me a story"}],"stream":true}' --no-buffer
 ```
 
-### 访问 Web UI
+### Access Web UI
 
-打开浏览器访问 `http://127.0.0.1:2048/` 使用内置的 Web 聊天界面。
+Open your browser and navigate to `http://127.0.0.1:2048/` to use the built-in web chat interface.
 
 ---
 
-## 📦 安装与依赖管理
+## 📦 Installation & Dependency Management
 
-### 前置要求
+### Prerequisites
 
-- Python 3.9+ (推荐 3.10 或 3.11)
-- 2GB+ 可用内存
-- 稳定的互联网连接
+- Python 3.9+ (recommend 3.10 or 3.11)
+- 2GB+ available memory
+- Stable internet connection
 
-### 一键安装脚本
+### One-Click Installation Script
 
 **macOS/Linux**:
 ```bash
@@ -205,9 +204,9 @@ curl -sSL https://raw.githubusercontent.com/CJackHwang/AIstudioProxyAPI/main/scr
 iwr -useb https://raw.githubusercontent.com/CJackHwang/AIstudioProxyAPI/main/scripts/install.ps1 | iex
 ```
 
-### 手动安装步骤
+### Manual Installation Steps
 
-#### 1. 安装 Poetry
+#### 1. Install Poetry
 
 ```bash
 # macOS/Linux
@@ -217,411 +216,411 @@ curl -sSL https://install.python-poetry.org | python3 -
 (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
 ```
 
-#### 2. 克隆项目
+#### 2. Clone Project
 
 ```bash
 git clone https://github.com/CJackHwang/AIstudioProxyAPI.git
 cd AIstudioProxyAPI
 ```
 
-#### 3. 安装依赖
+#### 3. Install Dependencies
 
 ```bash
 poetry install
 ```
 
-#### 4. 安装浏览器和 Camoufox
+#### 4. Install Browser and Camoufox
 
 ```bash
-# 激活 Poetry 环境
+# Activate Poetry environment
 poetry shell
 
-# 安装 Playwright 浏览器
+# Install Playwright browser
 playwright install firefox
 
-# 下载 Camoufox 数据文件
+# Download Camoufox data files
 camoufox fetch
-# 或使用备用方法
+# Or use alternative method
 python fetch_camoufox_data.py
 ```
 
-### 使用 uv 或 pip (可选)
+### Using uv or pip (Optional)
 
 ```bash
-# 导出 requirements.txt
+# Export requirements.txt
 poetry export -f requirements.txt --output requirements.txt --without-hashes
 
-# 使用 uv (更快)
+# Use uv (faster)
 pip install uv
 uv pip install -r requirements.txt
 
-# 使用 pip (传统方式)
+# Use pip (traditional)
 pip install -r requirements.txt
 ```
 
 ---
 
-## 🎮 运行与调试
+## 🎮 Running & Debugging
 
-### 日常运行模式
+### Daily Running Modes
 
-| 命令 | 说明 | 适用场景 |
-|------|------|---------|
-| `python gui_launcher.py` | GUI 启动器 | 新手、可视化配置 |
-| `python launch_camoufox.py --headless` | 无头模式 | 日常使用、服务器 |
-| `python launch_camoufox.py` | 普通模式 | 查看浏览器窗口 |
-| `python launch_camoufox.py --debug` | 调试模式 | 首次认证、故障排查 |
-| `python launch_camoufox.py --virtual-display` | 虚拟显示模式 | Linux 无 GUI 环境 |
+| Command | Description | Applicable Scenarios |
+|---------|-------------|---------------------|
+| `python gui_launcher.py` | GUI launcher | New users, visual configuration |
+| `python launch_camoufox.py --headless` | Headless mode | Daily use, servers |
+| `python launch_camoufox.py` | Normal mode | View browser window |
+| `python launch_camoufox.py --debug` | Debug mode | Initial authentication, troubleshooting |
+| `python launch_camoufox.py --virtual-display` | Virtual display mode | Linux non-GUI environment |
 
-### 直接启动 FastAPI (开发调试)
+### Direct FastAPI Start (Development & Debugging)
 
 ```bash
-# 需要先手动配置 CAMOUFOX_WS_ENDPOINT 环境变量
+# Need to manually configure CAMOUFOX_WS_ENDPOINT environment variable first
 export CAMOUFOX_WS_ENDPOINT=ws://127.0.0.1:9222
 uvicorn server:app --host 0.0.0.0 --port 2048
 ```
 
-### 查看日志
+### View Logs
 
 ```bash
-# 实时日志
+# Real-time logs
 tail -f logs/app.log
 
-# 错误日志
+# Error logs
 grep -i error logs/app.log
 
-# 启动日志
+# Launch logs
 tail -f logs/launch_app.log
 ```
 
-### 常用命令行参数
+### Common Command Line Arguments
 
 ```bash
 python launch_camoufox.py --help
 
-常用选项：
-  --headless              无头模式运行
-  --debug                 调试模式（显示浏览器窗口）
-  --virtual-display       使用虚拟显示（Linux 无 GUI）
-  --server-port PORT      FastAPI 端口（默认 2048）
-  --stream-port PORT      流式代理端口（默认 3120）
-  --internal-camoufox-proxy URL  浏览器代理地址
+Common options:
+  --headless              Run in headless mode
+  --debug                 Debug mode (show browser window)
+  --virtual-display       Use virtual display (Linux no GUI)
+  --server-port PORT      FastAPI port (default 2048)
+  --stream-port PORT      Streaming proxy port (default 3120)
+  --internal-camoufox-proxy URL  Browser proxy address
 ```
 
 ---
 
-## ⚙️ 配置管理
+## ⚙️ Configuration Management
 
-项目采用 `.env` 文件进行配置管理，所有配置项集中管理，无需复杂的命令行参数。
+The project uses `.env` file for configuration management, with all configuration items centrally managed, no need for complex command line parameters.
 
-### 快速配置
+### Quick Configuration
 
 ```bash
-# 1. 复制配置模板
+# 1. Copy configuration template
 cp .env.example .env
 
-# 2. 编辑配置文件
-nano .env  # 或使用其他编辑器
+# 2. Edit configuration file
+nano .env  # or use other editor
 ```
 
-### 主要配置类别
+### Main Configuration Categories
 
-| 类别 | 示例配置 | 说明 |
-|------|---------|------|
-| **端口配置** | `PORT=2048` | FastAPI 服务端口 |
-| | `STREAM_PORT=3120` | 流式代理端口（设为 0 禁用） |
-| **代理配置** | `UNIFIED_PROXY_CONFIG=http://127.0.0.1:7890` | HTTP/HTTPS 代理 |
-| **日志配置** | `SERVER_LOG_LEVEL=INFO` | 日志级别 (DEBUG/INFO/WARNING) |
-| | `DEBUG_LOGS_ENABLED=false` | 启用调试日志 |
-| **API 参数** | `DEFAULT_TEMPERATURE=1.0` | 默认温度参数 |
-| | `DEFAULT_MAX_OUTPUT_TOKENS=65536` | 默认最大输出 token |
-| **超时配置** | `RESPONSE_COMPLETION_TIMEOUT=300000` | 响应超时（毫秒） |
-| **认证配置** | `AUTO_SAVE_AUTH=false` | 自动保存认证文件 |
+| Category | Example Configuration | Description |
+|----------|----------------------|-------------|
+| **Port Configuration** | `PORT=2048` | FastAPI service port |
+| | `STREAM_PORT=3120` | Streaming proxy port (set to 0 to disable) |
+| **Proxy Configuration** | `UNIFIED_PROXY_CONFIG=http://127.0.0.1:7890` | HTTP/HTTPS proxy |
+| **Log Configuration** | `SERVER_LOG_LEVEL=INFO` | Log level (DEBUG/INFO/WARNING) |
+| | `DEBUG_LOGS_ENABLED=false` | Enable debug logs |
+| **API Parameters** | `DEFAULT_TEMPERATURE=1.0` | Default temperature parameter |
+| | `DEFAULT_MAX_OUTPUT_TOKENS=65536` | Default max output tokens |
+| **Timeout Configuration** | `RESPONSE_COMPLETION_TIMEOUT=300000` | Response timeout (milliseconds) |
+| **Authentication Configuration** | `AUTO_SAVE_AUTH=false` | Auto-save authentication files |
 
-### 配置优势
+### Configuration Advantages
 
-- ✅ **版本更新无忧**: `git pull` 后配置保留，无需重新设置
-- ✅ **启动命令简化**: 一行命令启动，无需长串参数
-- ✅ **安全性**: `.env` 已被 `.gitignore` 忽略，不会泄露敏感信息
-- ✅ **Docker 兼容**: Docker 和本地使用相同的配置方式
+- ✅ **Worry-free version updates**: Configuration preserved after `git pull`, no need to reconfigure
+- ✅ **Simplified startup command**: Start with one command, no long parameter lists
+- ✅ **Security**: `.env` is ignored by `.gitignore`, won't leak sensitive information
+- ✅ **Docker compatible**: Same configuration method for Docker and local use
 
-### 配置文档
+### Configuration Documentation
 
-- **[环境变量配置指南](docs/environment-configuration.md)** - 配置管理和使用方法 ⭐
-- **[环境变量完整参考](docs/env-variables-reference.md)** - 所有配置项的详细说明 📋
-
----
-
-## 📚 详细文档
-
-#### 🚀 快速上手
-
-- **[快速开始指南](docs/quick-start-guide.md)** - 15分钟快速部署和测试 🎯
-- [安装指南](docs/installation-guide.md) - 详细的安装步骤和环境配置
-- [环境变量配置指南](docs/environment-configuration.md) - .env 文件配置管理 ⭐
-- [环境变量完整参考](docs/env-variables-reference.md) - 所有配置项的详细说明 📋
-- [认证设置指南](docs/authentication-setup.md) - 首次运行与认证文件设置
-- [日常运行指南](docs/daily-usage.md) - 日常使用和配置选项
-
-#### 🔧 功能使用
-
-- [API 使用指南](docs/api-usage.md) - API 端点和客户端配置
-- **[OpenAI 兼容性说明](docs/openai-compatibility.md)** - 与 OpenAI API 的差异和限制 🔄
-- **[客户端集成示例](docs/client-examples.md)** - Python、JavaScript、cURL 等示例代码 💻
-- [Web UI 使用指南](docs/webui-guide.md) - Web 界面功能说明
-- [脚本注入指南](docs/script_injection_guide.md) - 油猴脚本动态挂载功能使用指南 (v3.0) 🆕
-
-#### ⚙️ 高级配置
-
-- [流式处理模式详解](docs/streaming-modes.md) - 三层响应获取机制详细说明 🆕
-- [高级配置指南](docs/advanced-configuration.md) - 高级功能和配置选项
-- [日志控制指南](docs/logging-control.md) - 日志系统配置和调试
-- [故障排除指南](docs/troubleshooting.md) - 常见问题解决方案
-
-#### 🌍 平台与部署
-
-- [平台差异说明](docs/platform-differences.md) - Windows/macOS/Linux 差异与注意事项
-- [Docker 部署指南 (docker/README-Docker.md)](docker/README-Docker.md) - 完整容器化部署流程
-- [Docker 快速指南 (docker/README.md)](docker/README.md) - 一键 Compose 启动
-
-#### 🛠️ 开发相关
-
-- [项目架构指南](docs/architecture-guide.md) - 模块化架构设计和组件详解 🆕
-- [开发者指南](docs/development-guide.md) - Poetry、Pyright 和开发工作流程
-- [依赖版本说明](docs/dependency-versions.md) - Poetry 依赖管理和版本控制详解
-
-## 客户端配置示例
-
-以 Open WebUI 为例：
-
-1. 打开 Open WebUI
-2. 进入 "设置" -> "连接"
-3. 在 "模型" 部分，点击 "添加模型"
-4. **模型名称**: 输入你想要的名字，例如 `aistudio-gemini-py`
-5. **API 基础 URL**: 输入 `http://127.0.0.1:2048/v1`
-6. **API 密钥**: 留空或输入任意字符
-7. 保存设置并开始聊天
+- **[Environment Configuration Guide](docs/environment-configuration.md)** - Configuration management and usage methods ⭐
+- **[Complete Environment Variables Reference](docs/env-variables-reference.md)** - Detailed description of all configuration items 📋
 
 ---
 
-## 🐳 Docker 部署
+## 📚 Detailed Documentation
 
-本项目支持通过 Docker 进行部署，使用 **Poetry** 进行依赖管理，**完全支持 `.env` 配置文件**！
+#### 🚀 Quick Start
 
-> 📁 **注意**: 所有 Docker 相关文件已移至 `docker/` 目录，保持项目根目录整洁。
+- **[Quick Start Guide](docs/quick-start-guide.md)** - 15-minute quick deployment and testing 🎯
+- [Installation Guide](docs/installation-guide.md) - Detailed installation steps and environment configuration
+- [Environment Configuration Guide](docs/environment-configuration.md) - .env file configuration management ⭐
+- [Complete Environment Variables Reference](docs/env-variables-reference.md) - Detailed description of all configuration items 📋
+- [Authentication Setup Guide](docs/authentication-setup.md) - Initial run and authentication file setup
+- [Daily Usage Guide](docs/daily-usage.md) - Daily use and configuration options
 
-### 🚀 快速 Docker 部署
+#### 🔧 Feature Usage
+
+- [API Usage Guide](docs/api-usage.md) - API endpoints and client configuration
+- **[OpenAI Compatibility Guide](docs/openai-compatibility.md)** - Differences and limitations with OpenAI API 🔄
+- **[Client Integration Examples](docs/client-examples.md)** - Python, JavaScript, cURL and other example code 💻
+- [Web UI Usage Guide](docs/webui-guide.md) - Web interface feature description
+- [Script Injection Guide](docs/script_injection_guide.md) - Tampermonkey script dynamic mounting feature usage guide (v3.0) 🆕
+
+#### ⚙️ Advanced Configuration
+
+- [Streaming Modes Detailed](docs/streaming-modes.md) - Detailed explanation of three-layer response acquisition mechanism 🆕
+- [Advanced Configuration Guide](docs/advanced-configuration.md) - Advanced features and configuration options
+- [Logging Control Guide](docs/logging-control.md) - Log system configuration and debugging
+- [Troubleshooting Guide](docs/troubleshooting.md) - Common problem solutions
+
+#### 🌍 Platform & Deployment
+
+- [Platform Differences](docs/platform-differences.md) - Windows/macOS/Linux differences and considerations
+- [Docker Deployment Guide (docker/README-Docker.md)](docker/README-Docker.md) - Complete containerized deployment process
+- [Docker Quick Guide (docker/README.md)](docker/README.md) - One-click Compose start
+
+#### 🛠️ Development Related
+
+- [Project Architecture Guide](docs/architecture-guide.md) - Modular architecture design and component details 🆕
+- [Developer Guide](docs/development-guide.md) - Poetry, Pyright and development workflow
+- [Dependency Versions Guide](docs/dependency-versions.md) - Poetry dependency management and version control detailed explanation
+
+## Client Configuration Example
+
+Taking Open WebUI as an example:
+
+1. Open Open WebUI
+2. Go to "Settings" -> "Connection"
+3. In the "Model" section, click "Add Model"
+4. **Model Name**: Enter the name you want, for example `aistudio-gemini-py`
+5. **API Base URL**: Enter `http://127.0.0.1:2048/v1`
+6. **API Key**: Leave empty or enter any characters
+7. Save settings and start chatting
+
+---
+
+## 🐳 Docker Deployment
+
+This project supports deployment through Docker, using **Poetry** for dependency management, **fully supports `.env` configuration files**!
+
+> 📁 **Note**: All Docker-related files have been moved to the `docker/` directory to keep the project root directory clean.
+
+### 🚀 Quick Docker Deployment
 
 ```bash
-# 1. 准备配置文件
+# 1. Prepare configuration file
 cd docker
 cp .env.docker .env
-nano .env  # 编辑配置
+nano .env  # Edit configuration
 
-# 2. 使用 Docker Compose 启动
+# 2. Start using Docker Compose
 docker compose up -d
 
-# 3. 查看日志
+# 3. View logs
 docker compose logs -f
 
-# 4. 版本更新 (在 docker 目录下)
+# 4. Version update (in docker directory)
 bash update.sh
 ```
 
-### 📚 详细文档
+### 📚 Detailed Documentation
 
-- [Docker 部署指南 (docker/README-Docker.md)](docker/README-Docker.md) - 包含完整的 Poetry + `.env` 配置说明
-- [Docker 快速指南 (docker/README.md)](docker/README.md) - 快速开始指南
+- [Docker Deployment Guide (docker/README-Docker.md)](docker/README-Docker.md) - Contains complete Poetry + `.env` configuration instructions
+- [Docker Quick Guide (docker/README.md)](docker/README.md) - Quick start guide
 
-### ✨ Docker 特性
+### ✨ Docker Features
 
-- ✅ **Poetry 依赖管理**: 使用现代化的 Python 依赖管理工具
-- ✅ **多阶段构建**: 优化镜像大小和构建速度
-- ✅ **配置统一**: 使用 `.env` 文件管理所有配置
-- ✅ **版本更新**: `bash update.sh` 即可完成更新
-- ✅ **目录整洁**: Docker 文件已移至 `docker/` 目录
-- ✅ **跨平台支持**: 支持 x86_64 和 ARM64 架构
-- ⚠️ **认证文件**: 首次运行需要在主机上获取认证文件，然后挂载到容器中
+- ✅ **Poetry Dependency Management**: Uses modern Python dependency management tool
+- ✅ **Multi-stage Build**: Optimizes image size and build speed
+- ✅ **Unified Configuration**: Uses `.env` file to manage all configurations
+- ✅ **Version Updates**: Simply run `bash update.sh` to complete updates
+- ✅ **Clean Directory**: Docker files moved to `docker/` directory
+- ✅ **Cross-platform Support**: Supports x86_64 and ARM64 architectures
+- ⚠️ **Authentication Files**: First run needs to obtain authentication files on the host, then mount to container
 
 ---
 
-## 关于 Camoufox
+## About Camoufox
 
-本项目使用 [Camoufox](https://camoufox.com/) 来提供具有增强反指纹检测能力的浏览器实例。
+This project uses [Camoufox](https://camoufox.com/) to provide browser instances with enhanced anti-fingerprinting capabilities.
 
-- **核心目标**: 模拟真实用户流量，避免被网站识别为自动化脚本或机器人
-- **实现方式**: Camoufox 基于 Firefox，通过修改浏览器底层 C++ 实现来伪装设备指纹（如屏幕、操作系统、WebGL、字体等），而不是通过容易被检测到的 JavaScript 注入
-- **Playwright 兼容**: Camoufox 提供了与 Playwright 兼容的接口
-- **Python 接口**: Camoufox 提供了 Python 包，可以通过 `camoufox.server.launch_server()` 启动其服务，并通过 WebSocket 连接进行控制
+- **Core Goal**: Simulate real user traffic, avoid being identified as automated scripts or bots
+- **Implementation**: Camoufox is based on Firefox, modifying the browser's underlying C++ implementation to disguise device fingerprints (such as screen, OS, WebGL, fonts, etc.), rather than using JavaScript injection which is easily detected
+- **Playwright Compatible**: Camoufox provides Playwright-compatible interfaces
+- **Python Interface**: Camoufox provides Python packages, can start service through `camoufox.server.launch_server()`, and control through WebSocket connections
 
-使用 Camoufox 的主要目的是提高与 AI Studio 网页交互时的隐蔽性，减少被检测或限制的可能性。但请注意，没有任何反指纹技术是绝对完美的。
+The main purpose of using Camoufox is to improve stealth when interacting with AI Studio web pages, reducing the possibility of being detected or limited. However, please note that no anti-fingerprinting technology is absolutely perfect.
 
-## 🔑 核心概念
+## 🔑 Core Concepts
 
-### 运行时组件说明
+### Runtime Component Description
 
-AI Studio Proxy API 由多个组件协同工作，提供完整的代理服务：
+AI Studio Proxy API consists of multiple components working together to provide complete proxy service:
 
-#### 1. FastAPI 主服务器 (`server.py`)
+#### 1. FastAPI Main Server (`server.py`)
 
-**作用**: 提供 OpenAI 兼容的 REST API 端点
+**Purpose**: Provides OpenAI-compatible REST API endpoints
 
-**功能**:
-- 处理 `/v1/chat/completions`、`/v1/models` 等 API 请求
-- 管理请求队列和并发控制
-- 提供 Web UI 和健康检查端点
-- 处理 API 密钥认证
+**Functions**:
+- Handle API requests like `/v1/chat/completions`, `/v1/models`
+- Manage request queues and concurrency control
+- Provide Web UI and health check endpoints
+- Handle API key authentication
 
-**启动方式**:
+**Startup Method**:
 ```bash
-# 通过 launch_camoufox.py 自动启动（推荐）
+# Auto-start through launch_camoufox.py (recommended)
 python launch_camoufox.py --headless
 
-# 或直接启动（需要手动配置浏览器端点）
+# Or direct start (needs manual browser endpoint configuration)
 uvicorn server:app --host 0.0.0.0 --port 2048
 ```
 
-**端口配置**: `.env` 中的 `PORT` 或 `DEFAULT_FASTAPI_PORT`
+**Port Configuration**: `PORT` or `DEFAULT_FASTAPI_PORT` in `.env`
 
-#### 2. Camoufox 浏览器 (反指纹检测)
+#### 2. Camoufox Browser (Anti-Fingerprinting)
 
-**作用**: 提供具有反指纹检测能力的 Firefox 浏览器实例
+**Purpose**: Provides Firefox browser instance with anti-fingerprinting capabilities
 
-**功能**:
-- 模拟真实用户流量，降低被检测风险
-- 通过修改浏览器底层 C++ 代码伪装设备指纹
-- 提供 Playwright 兼容的 WebSocket 端点
-- 自动访问和操作 Google AI Studio 页面
+**Functions**:
+- Simulate real user traffic, reduce detection risk
+- Disguise device fingerprints through modified browser underlying C++ code
+- Provide Playwright-compatible WebSocket endpoints
+- Automatically access and operate Google AI Studio pages
 
-**启动方式**: 通过 `launch_camoufox.py` 自动启动和管理
+**Startup Method**: Auto-started and managed through `launch_camoufox.py`
 
-**端口配置**: `.env` 中的 `DEFAULT_CAMOUFOX_PORT` (默认 9222)
+**Port Configuration**: `DEFAULT_CAMOUFOX_PORT` in `.env` (default 9222)
 
-**连接方式**: Playwright 通过 WebSocket (如 `ws://127.0.0.1:9222`) 连接
+**Connection Method**: Playwright connects through WebSocket (like `ws://127.0.0.1:9222`)
 
-#### 3. Playwright 自动化引擎
+#### 3. Playwright Automation Engine
 
-**作用**: 控制浏览器执行自动化操作
+**Purpose**: Controls browser to perform automation operations
 
-**功能**:
-- 管理 AI Studio 页面交互（输入提示、提取响应）
-- 动态切换模型
-- 设置模型参数（temperature、max_tokens 等）
-- 捕获错误并生成快照
+**Functions**:
+- Manage AI Studio page interactions (input prompts, extract responses)
+- Dynamically switch models
+- Set model parameters (temperature, max_tokens, etc.)
+- Capture errors and generate snapshots
 
-**集成方式**: 在 FastAPI 应用启动时初始化，连接到 Camoufox 浏览器
+**Integration Method**: Initialized when FastAPI application starts, connecting to Camoufox browser
 
-#### 4. 集成流式代理服务 (`stream/`)
+#### 4. Integrated Streaming Proxy Service (`stream/`)
 
-**作用**: 提供低延迟的流式响应代理
+**Purpose**: Provides low-latency streaming response proxy
 
-**功能**:
-- 直接转发 AI Studio 的流式响应，减少延迟
-- 在本地 (`127.0.0.1:3120`) 作为代理服务器运行
-- 支持自签名证书管理（`certs/` 目录）
-- 作为三层响应获取机制的第一层
+**Functions**:
+- Directly forward AI Studio's streaming responses, reducing latency
+- Runs as proxy server locally (`127.0.0.1:3120`)
+- Supports self-signed certificate management (`certs/` directory)
+- Serves as the first layer of three-layer response acquisition mechanism
 
-**启动方式**: FastAPI 应用启动时自动启动独立进程
+**Startup Method**: Auto-starts independent process when FastAPI application starts
 
-**端口配置**: `.env` 中的 `STREAM_PORT` (默认 3120，设为 `0` 禁用)
+**Port Configuration**: `STREAM_PORT` in `.env` (default 3120, set to `0` to disable)
 
-**工作流程**:
+**Workflow**:
 ```
-客户端请求 → FastAPI → Stream Proxy → AI Studio
+Client Request → FastAPI → Stream Proxy → AI Studio
                 ↓            ↓
-         （备用）Playwright 页面交互
+         (Backup) Playwright Page Interaction
 ```
 
-#### 5. GUI 启动器 (`gui_launcher.py`) (可选)
+#### 5. GUI Launcher (`gui_launcher.py`) (Optional)
 
-**作用**: 提供图形化的启动和配置界面
+**Purpose**: Provides graphical startup and configuration interface
 
-**功能**:
-- 可视化配置端口、代理、认证等选项
-- 一键启动/停止所有服务
-- 实时查看日志输出
-- 管理多个配置预设
+**Functions**:
+- Visual configuration of ports, proxies, authentication and other options
+- One-click start/stop all services
+- Real-time log output viewing
+- Manage multiple configuration presets
 
-**启动方式**:
+**Startup Method**:
 ```bash
 python gui_launcher.py
 ```
 
-### 三层响应获取机制与参数控制
+### Three-Layer Response Acquisition Mechanism & Parameter Control
 
-项目采用创新的三层响应获取机制，在性能和可靠性之间取得平衡：
+The project adopts an innovative three-layer response acquisition mechanism, balancing performance and reliability:
 
-#### 响应获取优先级
+#### Response Acquisition Priority
 
-1. **第一层: 集成流式代理服务** (默认启用)
-   - ⚡ **性能最优**: 直接转发流式响应，延迟最低
-   - 📍 **端口**: 3120 (可通过 `STREAM_PORT` 配置)
-   - ✅ **适用场景**: 流式请求、实时对话
-   - ⚠️ **限制**: 参数支持有限，主要支持基础参数
+1. **First Layer: Integrated Streaming Proxy Service** (enabled by default)
+   - ⚡ **Optimal Performance**: Directly forwards streaming responses, lowest latency
+   - 📍 **Port**: 3120 (configurable through `STREAM_PORT`)
+   - ✅ **Applicable Scenarios**: Streaming requests, real-time conversation
+   - ⚠️ **Limitations**: Limited parameter support, mainly supports basic parameters
 
-2. **第二层: 外部 Helper 服务** (可选配置)
-   - 🔧 **需要**: 有效的认证文件 (`auth_profiles/active/*.json`)
-   - 📡 **配置**: 通过 `--helper <endpoint>` 或 `.env` 配置
-   - ✅ **适用场景**: 需要额外功能的场景
-   - ⚠️ **限制**: 取决于 Helper 服务实现
+2. **Second Layer: External Helper Service** (optional configuration)
+   - 🔧 **Requires**: Valid authentication file (`auth_profiles/active/*.json`)
+   - 📡 **Configuration**: Through `--helper <endpoint>` or `.env` configuration
+   - ✅ **Applicable Scenarios**: Scenarios requiring additional features
+   - ⚠️ **Limitations**: Depends on Helper service implementation
 
-3. **第三层: Playwright 页面交互** (最终后备)
-   - 🎯 **功能完整**: 支持所有参数和模型切换
-   - 🔧 **参数**: `temperature`, `max_output_tokens`, `top_p`, `stop`, `reasoning_effort` 等
-   - ⏱️ **延迟较高**: 需要页面操作，但功能最完整
-   - ✅ **适用场景**: 需要精确参数控制、模型切换
+3. **Third Layer: Playwright Page Interaction** (final fallback)
+   - 🎯 **Complete Functionality**: Supports all parameters and model switching
+   - 🔧 **Parameters**: `temperature`, `max_output_tokens`, `top_p`, `stop`, `reasoning_effort`, etc.
+   - ⏱️ **Higher Latency**: Requires page operations, but most complete functionality
+   - ✅ **Applicable Scenarios**: Need precise parameter control, model switching
 
-#### 参数控制机制
+#### Parameter Control Mechanism
 
-| 层级 | 性能 | 参数支持 | 延迟 | 推荐场景 |
-|------|------|---------|------|---------|
-| 流式代理 | ⚡⚡⚡ | 基础参数 | 最低 | 流式对话、实时响应 |
-| Helper 服务 | ⚡⚡ | 取决于实现 | 中等 | 特定功能需求 |
-| Playwright | ⚡ | 所有参数 | 较高 | 精确控制、模型切换 |
+| Layer | Performance | Parameter Support | Latency | Recommended Scenario |
+|-------|-------------|------------------|---------|---------------------|
+| Streaming Proxy | ⚡⚡⚡ | Basic parameters | Lowest | Streaming conversation, real-time response |
+| Helper Service | ⚡⚡ | Depends on implementation | Medium | Specific feature requirements |
+| Playwright | ⚡ | All parameters | Higher | Precise control, model switching |
 
-#### 配置示例
+#### Configuration Examples
 
-**启用流式代理** (推荐):
+**Enable streaming proxy** (recommended):
 ```env
 STREAM_PORT=3120
 ```
 
-**禁用流式代理，使用 Playwright**:
+**Disable streaming proxy, use Playwright**:
 ```env
 STREAM_PORT=0
 ```
 
-**配置 Helper 服务**:
+**Configure Helper service**:
 ```bash
 python launch_camoufox.py --helper http://helper.example.com:8080
 ```
 
-### 客户端管理历史
+### Client Conversation History Management
 
-**重要**: 客户端负责维护完整的聊天记录并将其发送给代理。
+**Important**: Clients are responsible for maintaining complete chat records and sending them to the proxy.
 
-- ✅ **支持**: 客户端管理对话历史，每次请求发送完整上下文
-- ❌ **不支持**: 在 AI Studio UI 内编辑或分叉历史消息
-- 📝 **建议**: 使用支持对话管理的客户端（如 Open WebUI、ChatBox 等）
+- ✅ **Support**: Clients manage conversation history, sending complete context with each request
+- ❌ **Not Supported**: Editing or forking historical messages within AI Studio UI
+- 📝 **Recommendation**: Use clients that support conversation management (such as Open WebUI, ChatBox, etc.)
 
-## 未来计划
+## Future Plans
 
-以下是一些计划中的改进方向：
+Here are some planned improvement directions:
 
-- **云服务器部署指南**: 提供更详细的在主流云平台上部署和管理服务的指南
-- **认证更新流程优化**: 探索更便捷的认证文件更新机制，减少手动操作
-- **流程健壮性优化**: 减少错误几率和接近原生体验
+- **Cloud Server Deployment Guide**: Provide more detailed guides for deploying and managing services on mainstream cloud platforms
+- **Authentication Update Process Optimization**: Explore more convenient authentication file update mechanisms to reduce manual operations
+- **Process Robustness Optimization**: Reduce error probability and approach native experience
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Welcome to submit Issues and Pull Requests!
 
 ## License
 
 [AGPLv3](LICENSE)
 
-## 开发不易，支持作者
+## Development is difficult, please support the author
 
-如果您觉得本项目对您有帮助，并且希望支持作者的持续开发，欢迎通过以下方式进行捐赠。您的支持是对我们最大的鼓励！
+If you find this project helpful and wish to support the author's continuous development, welcome to donate through the following methods. Your support is our greatest encouragement!
 
-![开发不易，支持作者](./支持作者.jpg)
+![Development is difficult, please support the author](./支持作者.jpg)
