@@ -195,6 +195,8 @@ async def _handle_response_processing(
     result_future: Future,
     submit_button_locator: Locator,
     check_client_disconnected: Callable,
+    prompt_length: int,
+    timeout: float,
 ) -> Optional[Tuple[Event, Locator, Callable]]:
     """处理响应生成"""
     from server import logger
@@ -208,9 +210,9 @@ async def _handle_response_processing(
     use_stream = stream_port != '0'
     
     if use_stream:
-        return await _handle_auxiliary_stream_response(req_id, request, context, result_future, submit_button_locator, check_client_disconnected)
+        return await _handle_auxiliary_stream_response(req_id, request, context, result_future, submit_button_locator, check_client_disconnected, timeout=timeout)
     else:
-        return await _handle_playwright_response(req_id, request, page, context, result_future, submit_button_locator, check_client_disconnected)
+        return await _handle_playwright_response(req_id, request, page, context, result_future, submit_button_locator, check_client_disconnected, prompt_length, timeout=timeout)
 
 
 async def _handle_auxiliary_stream_response(
@@ -220,6 +222,7 @@ async def _handle_auxiliary_stream_response(
     result_future: Future,
     submit_button_locator: Locator,
     check_client_disconnected: Callable,
+    timeout: float,
 ) -> Optional[Tuple[Event, Locator, Callable]]:
     """辅助流响应处理路径：负责将 STREAM_QUEUE 的数据转换为 OpenAI 兼容 SSE/JSON。
 
@@ -237,12 +240,24 @@ async def _handle_auxiliary_stream_response(
         try:
             completion_event = Event()
             # 使用生成器作为响应体，交由 FastAPI 进行 SSE 推送
+            # 使用生成器作为响应体，交由 FastAPI 进行 SSE 推送
+            page = context['page']
             stream_gen_func = gen_sse_from_aux_stream(
                 req_id,
                 request,
                 current_ai_studio_model_id or MODEL_NAME,
                 check_client_disconnected,
                 completion_event,
+                timeout=timeout,
+                page=page,
+            )
+            stream_gen_func = gen_sse_from_aux_stream(
+                req_id,
+                request,
+                current_ai_studio_model_id or MODEL_NAME,
+                check_client_disconnected,
+                completion_event,
+                timeout=timeout,
             )
             if not result_future.done():
                 result_future.set_result(StreamingResponse(stream_gen_func, media_type="text/event-stream"))
@@ -254,6 +269,9 @@ async def _handle_auxiliary_stream_response(
 
         except Exception as e:
             logger.error(f"[{req_id}] 从队列获取流式数据时出错: {e}", exc_info=True)
+        page = context['page']
+        # 非流式：消费辅助队列的最终结果并组装 JSON 响应
+        async for raw_data in use_stream_response(req_id, page=page):
             if completion_event and not completion_event.is_set():
                 completion_event.set()
             raise
@@ -346,9 +364,9 @@ async def _handle_auxiliary_stream_response(
         return None
 
 
-async def _handle_playwright_response(req_id: str, request: ChatCompletionRequest, page: AsyncPage, 
-                                    context: dict, result_future: Future, submit_button_locator: Locator, 
-                                    check_client_disconnected: Callable) -> Optional[Tuple[Event, Locator, Callable]]:
+async def _handle_playwright_response(req_id: str, request: ChatCompletionRequest, page: AsyncPage,
+                                    context: dict, result_future: Future, submit_button_locator: Locator,
+                                    check_client_disconnected: Callable, prompt_length: int, timeout: float) -> Optional[Tuple[Event, Locator, Callable]]:
     """使用Playwright处理响应"""
     from server import logger
     
@@ -369,6 +387,8 @@ async def _handle_playwright_response(req_id: str, request: ChatCompletionReques
             request,
             check_client_disconnected,
             completion_event,
+            prompt_length=prompt_length,
+            timeout=timeout,
         )
         if not result_future.done():
             result_future.set_result(StreamingResponse(stream_gen_func, media_type="text/event-stream"))
@@ -377,7 +397,7 @@ async def _handle_playwright_response(req_id: str, request: ChatCompletionReques
     else:
         # 使用PageController获取响应
         page_controller = PageController(page, logger, req_id)
-        final_content = await page_controller.get_response(check_client_disconnected)
+        final_content = await page_controller.get_response(check_client_disconnected, prompt_length, timeout=timeout)
         
         # 计算token使用统计
         usage_stats = calculate_usage_stats(
@@ -579,9 +599,15 @@ async def _process_request_refactored(
 
         await page_controller.submit_prompt(prepared_prompt,image_list, check_client_disconnected)
         
+        # DYNAMIC TIMEOUT: Calculate timeout based on prompt length
+        # Formula: 5s base + 1s for every 1000 characters
+        dynamic_timeout = 5.0 + (len(prepared_prompt) / 1000.0)
+        logger.info(f"[{req_id}] Calculated dynamic TTFB timeout: {dynamic_timeout:.2f}s")
+
         # 响应处理仍然需要在这里，因为它决定了是流式还是非流式，并设置future
         response_result = await _handle_response_processing(
-            req_id, request, page, context, result_future, submit_button_locator, check_client_disconnected
+            req_id, request, page, context, result_future, submit_button_locator, check_client_disconnected, len(prepared_prompt),
+            timeout=dynamic_timeout
         )
         
         if response_result:

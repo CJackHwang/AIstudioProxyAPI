@@ -20,9 +20,25 @@ from config import (
     RESPONSE_COMPLETION_TIMEOUT,
     INITIAL_WAIT_MS_BEFORE_POLLING,
 )
-from models import ClientDisconnectedError
+from models import ClientDisconnectedError, QuotaExceededError
 
 logger = logging.getLogger("AIStudioProxyServer")
+
+async def check_quota_limit(page: AsyncPage, req_id: str) -> None:
+    """Check for blocking quota errors immediately."""
+    try:
+        # Selector for the quota warning
+        quota_selector = 'ms-callout.warning-callout:has-text("You are out of free generations")'
+        if await page.locator(quota_selector).count() > 0:
+            # Double check visibility to be sure
+            if await page.locator(quota_selector).first.is_visible(timeout=500):
+                logger.error(f"[{req_id}] ❌ Quota Limit Detected! Account is out of free generations.")
+                raise QuotaExceededError("AI Studio Account is out of free generations.")
+    except QuotaExceededError:
+        raise
+    except Exception as e:
+        # Don't let check errors block the main flow, unless it's the quota error itself
+        logger.warning(f"[{req_id}] Error checking for quota limit: {e}")
 
 async def get_raw_text_content(response_element: Locator, previous_text: str, req_id: str) -> str:
     """从响应元素获取原始文本内容"""
@@ -683,13 +699,23 @@ async def _wait_for_response_completion(
     req_id: str,
     check_client_disconnected_func: Callable,
     current_chat_id: Optional[str],
-    timeout_ms=RESPONSE_COMPLETION_TIMEOUT,
-    initial_wait_ms=INITIAL_WAIT_MS_BEFORE_POLLING
+    prompt_length: int,
+    initial_wait_ms=INITIAL_WAIT_MS_BEFORE_POLLING,
+    timeout: Optional[float] = None,
 ) -> bool:
     """等待响应完成"""
     from playwright.async_api import TimeoutError
     
-    logger.info(f"[{req_id}] (WaitV3) 开始等待响应完成... (超时: {timeout_ms}ms)")
+    # 1. Dynamic Timeout
+    if timeout is None:
+        # Fallback to old logic if timeout is not provided, but use the safer 1000 chars/sec
+        timeout_seconds = 5 + (prompt_length / 1000.0)
+    else:
+        timeout_seconds = timeout
+    
+    timeout_ms = timeout_seconds * 1000
+
+    logger.info(f"[{req_id}] (WaitV3) 开始等待响应完成... (动态超时: {timeout_seconds:.2f}s)")
     await asyncio.sleep(initial_wait_ms / 1000) # Initial brief wait
     
     start_time = time.time()
@@ -697,23 +723,45 @@ async def _wait_for_response_completion(
     
     consecutive_empty_input_submit_disabled_count = 0
     
+    current_timeout_seconds = timeout_seconds
+
     while True:
+        # A. Check for Quota Error (You already did this ✅)
+        await check_quota_limit(page, req_id)
+
         try:
             check_client_disconnected_func("等待响应完成 - 循环开始")
         except ClientDisconnectedError:
             logger.info(f"[{req_id}] (WaitV3) 客户端断开连接，中止等待。")
             return False
 
-        current_time_elapsed_ms = (time.time() - start_time) * 1000
-        if current_time_elapsed_ms > timeout_ms:
-            logger.error(f"[{req_id}] (WaitV3) 等待响应完成超时 ({timeout_ms}ms)。")
-            await save_error_snapshot(f"wait_completion_v3_overall_timeout_{req_id}")
-            return False
+        time_elapsed = time.time() - start_time
+        if time_elapsed > current_timeout_seconds:
+            # UI Thinking Safety Check
+            is_thinking = await page.locator('button[aria-label="Stop generating"]').is_visible()
+            if is_thinking:
+                logger.info(f"[{req_id}] Timeout reached, but model is thinking (Stop button visible). Extending wait by 10s...")
+                current_timeout_seconds += 10  # Add 10 more seconds
+                continue # Continue the loop
+            else:
+                logger.error(f"[{req_id}] (WaitV3) 等待响应完成超时 ({current_timeout_seconds:.1f}s) and UI is idle. Aborting.")
+                await save_error_snapshot(f"wait_completion_v3_overall_timeout_{req_id}")
+                return False
 
         try:
             check_client_disconnected_func("等待响应完成 - 超时检查后")
         except ClientDisconnectedError:
             return False
+
+        # C. Check if "Thinking" (UI is busy)
+        stop_button_locator = page.locator('button[aria-label="Stop generating"]')
+        is_thinking = await stop_button_locator.is_visible()
+        if is_thinking:
+            if DEBUG_LOGS_ENABLED:
+                logger.debug(f"[{req_id}] (WaitV3) Google is thinking (Stop button visible). Resetting timeout start time.")
+            start_time = time.time() # Reset timeout while Google is thinking
+            # Reset the timeout to its original calculated value, as we've just reset the timer
+            current_timeout_seconds = timeout_seconds
 
         # --- 主要条件: 输入框空 & 提交按钮禁用 ---
         is_input_empty = await prompt_textarea_locator.input_value() == ""
@@ -755,9 +803,9 @@ async def _wait_for_response_completion(
             consecutive_empty_input_submit_disabled_count = 0 # 重置计数器
             if DEBUG_LOGS_ENABLED:
                 reasons = []
-                if not is_input_empty: 
+                if not is_input_empty:
                     reasons.append("输入框非空")
-                if not is_submit_disabled: 
+                if not is_submit_disabled:
                     reasons.append("提交按钮非禁用")
                 logger.debug(f"[{req_id}] (WaitV3) 主要条件未满足 ({', '.join(reasons)}). 继续轮询...")
 

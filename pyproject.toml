@@ -13,7 +13,6 @@ pydantic = ">=2.7.1,<3.0.0"
 uvicorn = "==0.29.0"
 python-dotenv = "==1.0.1"
 websockets = "==12.0"
-httptools = "==0.6.1"
 uvloop = {version = "*", markers = "sys_platform != 'win32'"}
 playwright = "*"
 camoufox = {version = "0.4.11", extras = ["geoip"]}

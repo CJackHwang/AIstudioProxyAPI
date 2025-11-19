@@ -14,7 +14,8 @@ from config import (
     CLEAR_CHAT_BUTTON_SELECTOR, CLEAR_CHAT_CONFIRM_BUTTON_SELECTOR, OVERLAY_SELECTOR,
     PROMPT_TEXTAREA_SELECTOR, RESPONSE_CONTAINER_SELECTOR, RESPONSE_TEXT_SELECTOR,
     EDIT_MESSAGE_BUTTON_SELECTOR,USE_URL_CONTEXT_SELECTOR,UPLOAD_BUTTON_SELECTOR,
-    ENABLE_THINKING_MODE_TOGGLE_SELECTOR, SET_THINKING_BUDGET_TOGGLE_SELECTOR, THINKING_BUDGET_INPUT_SELECTOR,
+    ENABLE_THINKING_MODE_TOGGLE_SELECTOR, THINKING_LEVEL_DROPDOWN_SELECTOR,
+    SET_THINKING_BUDGET_TOGGLE_SELECTOR, THINKING_BUDGET_INPUT_SELECTOR,
     GROUNDING_WITH_GOOGLE_SEARCH_TOGGLE_SELECTOR
 )
 from config import (
@@ -22,8 +23,8 @@ from config import (
     DEFAULT_TEMPERATURE, DEFAULT_MAX_OUTPUT_TOKENS, DEFAULT_STOP_SEQUENCES, DEFAULT_TOP_P,
     ENABLE_URL_CONTEXT, ENABLE_THINKING_BUDGET, DEFAULT_THINKING_BUDGET, ENABLE_GOOGLE_SEARCH
 )
-from models import ClientDisconnectedError
-from .operations import save_error_snapshot, _wait_for_response_completion, _get_final_response_content
+from models import ClientDisconnectedError, QuotaExceededError
+from .operations import save_error_snapshot, _wait_for_response_completion, _get_final_response_content, check_quota_limit
 from .initialization import enable_temporary_chat_mode
 from .thinking_normalizer import normalize_reasoning_effort, format_directive_log
 
@@ -118,6 +119,14 @@ class PageController:
             should_be_enabled=True,
             check_client_disconnected=check_client_disconnected
         )
+
+        # --- FIX START: Gemini 3.0 Bypass ---
+        # Check if we are on the new Gemini 3.0 UI
+        new_thinking_dropdown = self.page.locator(THINKING_LEVEL_DROPDOWN_SELECTOR)
+        if await new_thinking_dropdown.is_visible(timeout=500):
+            self.logger.info(f"[{self.req_id}] 检测到 Gemini 3.0+ UI (Thinking Level Dropdown). 跳过预算滑块配置。")
+            return
+        # --- FIX END ---
 
         # 场景2: 开启思考，不限制预算
         if not directive.budget_enabled:
@@ -280,11 +289,22 @@ class PageController:
         返回:
             bool: 是否成功设置到期望状态（如果开关不存在或被禁用，返回False）
         """
-        toggle_selector = ENABLE_THINKING_MODE_TOGGLE_SELECTOR
+        legacy_toggle_selector = ENABLE_THINKING_MODE_TOGGLE_SELECTOR
+        new_dropdown_selector = THINKING_LEVEL_DROPDOWN_SELECTOR
+
         self.logger.info(f"[{self.req_id}] 控制主思考开关，期望状态: {'开启' if should_be_enabled else '关闭'}...")
 
         try:
-            toggle_locator = self.page.locator(toggle_selector)
+            # 1. 优先检查新版 UI (Gemini 3.0+ Dropdown)
+            # 使用极短超时 (500ms) 避免在旧版 UI 上造成延迟
+            new_dropdown_locator = self.page.locator(new_dropdown_selector)
+            if await new_dropdown_locator.is_visible(timeout=500):
+                self.logger.info(f"[{self.req_id}] 检测到 Gemini 3.0+ UI (Thinking Level Dropdown)。")
+                # 存在 Dropdown 即意味着处于新版 UI，此时不要尝试去点击旧版 Toggle
+                return True
+
+            # 2. 检查旧版 UI (Toggle)
+            toggle_locator = self.page.locator(legacy_toggle_selector)
 
             # 等待元素可见（5秒超时）
             await expect_async(toggle_locator).to_be_visible(timeout=5000)
@@ -614,9 +634,9 @@ class PageController:
                 await submit_button_locator.click(timeout=CLICK_TIMEOUT_MS)
                 await asyncio.sleep(1.0)
                 self.logger.info(f"[{self.req_id}] 发送按钮点击并等待完成。")
-            except Exception as e_submit:
-                # 如果发送按钮不可用、超时或发生Playwright相关错误，记录日志并继续
-                self.logger.info(f"[{self.req_id}] 发送按钮不可用或检查/点击时发生Playwright错误。符合预期,继续检查清空按钮。")
+            except Exception:
+                # 如果发送按钮不可用、超时或发生Playwright相关错误，这是符合预期的，直接忽略
+                pass
 
             clear_chat_button_locator = self.page.locator(CLEAR_CHAT_BUTTON_SELECTOR)
             confirm_button_locator = self.page.locator(CLEAR_CHAT_CONFIRM_BUTTON_SELECTOR)
@@ -627,12 +647,9 @@ class PageController:
                 await expect_async(clear_chat_button_locator).to_be_enabled(timeout=3000)
                 can_attempt_clear = True
                 self.logger.info(f"[{self.req_id}] \"清空聊天\"按钮可用，继续清空流程。")
-            except Exception as e_enable:
-                is_new_chat_url = '/prompts/new_chat' in self.page.url.rstrip('/')
-                if is_new_chat_url:
-                    self.logger.info(f"[{self.req_id}] \"清空聊天\"按钮不可用 (预期，因为在 new_chat 页面)。跳过清空操作。")
-                else:
-                    self.logger.warning(f"[{self.req_id}] 等待\"清空聊天\"按钮可用失败: {e_enable}。清空操作可能无法执行。")
+            except Exception:
+                # 按钮不可用时直接跳过，不记录日志
+                pass
 
             await self._check_disconnect(check_client_disconnected, "清空聊天 - \"清空聊天\"按钮可用性检查后")
 
@@ -642,6 +659,8 @@ class PageController:
                 self.logger.info(f"[{self.req_id}] 聊天已清空，重新启用 '临时聊天' 模式...")
                 await enable_temporary_chat_mode(self.page)
 
+        except ClientDisconnectedError:
+            self.logger.info(f"[{self.req_id}] Client disconnected during chat history cleanup. Session reset.")
         except Exception as e_clear:
             self.logger.error(f"[{self.req_id}] 清空聊天过程中发生错误: {e_clear}")
             if not (isinstance(e_clear, ClientDisconnectedError) or (hasattr(e_clear, 'name') and 'Disconnect' in e_clear.name)):
@@ -917,85 +936,117 @@ class PageController:
             self.logger.error(f"[{self.req_id}] 通过上传菜单设置文件失败: {e}")
             return False
 
-    async def submit_prompt(self, prompt: str,image_list: List, check_client_disconnected: Callable):
-        """提交提示到页面。"""
-        self.logger.info(f"[{self.req_id}] 填充并提交提示 ({len(prompt)} chars)...")
-        prompt_textarea_locator = self.page.locator(PROMPT_TEXTAREA_SELECTOR)
-        autosize_wrapper_locator = self.page.locator('ms-prompt-input-wrapper ms-autosize-textarea')
-        submit_button_locator = self.page.locator(SUBMIT_BUTTON_SELECTOR)
-
-        try:
-            await expect_async(prompt_textarea_locator).to_be_visible(timeout=5000)
-            await self._check_disconnect(check_client_disconnected, "After Input Visible")
-
-            # 使用 JavaScript 填充文本
-            await prompt_textarea_locator.evaluate(
-                '''
-                (element, text) => {
-                    element.value = text;
-                    element.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-                    element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-                }
-                ''',
-                prompt
-            )
-            await autosize_wrapper_locator.evaluate('(element, text) => { element.setAttribute("data-value", text); }', prompt)
-            await self._check_disconnect(check_client_disconnected, "After Input Fill")
-
-            # 上传（仅使用菜单 + 隐藏 input 设置文件；处理可能的授权弹窗）
+    async def submit_prompt(self, prompt: str, image_list: List, check_client_disconnected: Callable):
+        """提交提示到页面。包含重试和自动刷新机制。"""
+        max_retries = 2
+        
+        for attempt in range(max_retries):
             try:
-                self.logger.info(f"[{self.req_id}] 待上传附件数量: {len(image_list)}")
-            except Exception:
-                pass
-            if len(image_list) > 0:
-                ok = await self._open_upload_menu_and_choose_file(image_list)
-                if not ok:
-                    self.logger.error(f"[{self.req_id}] 在上传文件时发生错误: 通过菜单方式未能设置文件")
+                self.logger.info(f"[{self.req_id}] 填充并提交提示 (尝试 {attempt + 1}/{max_retries})...")
+                
+                prompt_textarea_locator = self.page.locator(PROMPT_TEXTAREA_SELECTOR)
+                autosize_wrapper_locator = self.page.locator('ms-prompt-input-wrapper ms-autosize-textarea')
+                submit_button_locator = self.page.locator(SUBMIT_BUTTON_SELECTOR)
 
-            # 等待发送按钮启用
-            wait_timeout_ms_submit_enabled = 100000
-            try:
-                await self._check_disconnect(check_client_disconnected, "填充提示后等待发送按钮启用 - 前置检查")
-                await expect_async(submit_button_locator).to_be_enabled(timeout=wait_timeout_ms_submit_enabled)
-                self.logger.info(f"[{self.req_id}] ✅ 发送按钮已启用。")
-            except Exception as e_pw_enabled:
-                self.logger.error(f"[{self.req_id}] ❌ 等待发送按钮启用超时或错误: {e_pw_enabled}")
-                await save_error_snapshot(f"submit_button_enable_timeout_{self.req_id}")
-                raise
+                # 等待输入框可见 (Timeout increased to 10s)
+                await expect_async(prompt_textarea_locator).to_be_visible(timeout=10000)
+                await self._check_disconnect(check_client_disconnected, "After Input Visible")
 
-            await self._check_disconnect(check_client_disconnected, "After Submit Button Enabled")
-            await asyncio.sleep(0.3)
+                # 使用 JavaScript 填充文本
+                await prompt_textarea_locator.evaluate(
+                    '''
+                    (element, text) => {
+                        element.value = text;
+                        element.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                        element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                    }
+                    ''',
+                    prompt
+                )
+                await autosize_wrapper_locator.evaluate('(element, text) => { element.setAttribute("data-value", text); }', prompt)
+                await self._check_disconnect(check_client_disconnected, "After Input Fill")
 
-            # 优先点击按钮提交，其次回车提交，最后组合键提交
-            button_clicked = False
-            try:
-                self.logger.info(f"[{self.req_id}] 尝试点击提交按钮...")
-                # 提交前再处理一次潜在对话框，避免按钮点击被拦截
-                await self._handle_post_upload_dialog()
-                await submit_button_locator.click(timeout=5000)
-                self.logger.info(f"[{self.req_id}] ✅ 提交按钮点击完成。")
-                button_clicked = True
-            except Exception as click_err:
-                self.logger.error(f"[{self.req_id}] ❌ 提交按钮点击失败: {click_err}")
-                await save_error_snapshot(f"submit_button_click_fail_{self.req_id}")
+                # 上传（仅使用菜单 + 隐藏 input 设置文件；处理可能的授权弹窗）
+                try:
+                    self.logger.info(f"[{self.req_id}] 待上传附件数量: {len(image_list)}")
+                except Exception:
+                    pass
+                if len(image_list) > 0:
+                    ok = await self._open_upload_menu_and_choose_file(image_list)
+                    if not ok:
+                        self.logger.error(f"[{self.req_id}] 在上传文件时发生错误: 通过菜单方式未能设置文件")
 
-            if not button_clicked:
-                self.logger.info(f"[{self.req_id}] 按钮提交失败，尝试回车键提交...")
-                submitted_successfully = await self._try_enter_submit(prompt_textarea_locator, check_client_disconnected)
-                if not submitted_successfully:
-                    self.logger.info(f"[{self.req_id}] 回车提交失败，尝试组合键提交...")
-                    combo_ok = await self._try_combo_submit(prompt_textarea_locator, check_client_disconnected)
-                    if not combo_ok:
-                        self.logger.error(f"[{self.req_id}] ❌ 组合键提交也失败。")
-                        raise Exception("Submit failed: Button, Enter, and Combo key all failed")
+                # 等待发送按钮启用 (Timeout reduced to 10s to detect hang early)
+                wait_timeout_ms_submit_enabled = 10000
+                try:
+                    await self._check_disconnect(check_client_disconnected, "填充提示后等待发送按钮启用 - 前置检查")
+                    await expect_async(submit_button_locator).to_be_enabled(timeout=wait_timeout_ms_submit_enabled)
+                    self.logger.info(f"[{self.req_id}] ✅ 发送按钮已启用。")
+                except Exception as e_pw_enabled:
+                    self.logger.warning(f"[{self.req_id}] ⚠️ 等待发送按钮启用超时 (可能是页面卡顿): {e_pw_enabled}")
+                    raise # Trigger retry logic
 
-            await self._check_disconnect(check_client_disconnected, "After Submit")
+                await self._check_disconnect(check_client_disconnected, "After Submit Button Enabled")
+                await asyncio.sleep(0.3)
 
-        except Exception as e_input_submit:
-            self.logger.error(f"[{self.req_id}] 输入和提交过程中发生错误: {e_input_submit}")
-            if not isinstance(e_input_submit, ClientDisconnectedError):
-                await save_error_snapshot(f"input_submit_error_{self.req_id}")
-            raise
+                # 优先点击按钮提交，其次回车提交，最后组合键提交
+                button_clicked = False
+                try:
+                    self.logger.info(f"[{self.req_id}] 尝试点击提交按钮...")
+                    # 提交前再处理一次潜在对话框，避免按钮点击被拦截
+                    await self._handle_post_upload_dialog()
+                    await submit_button_locator.click(timeout=5000)
+                    self.logger.info(f"[{self.req_id}] ✅ 提交按钮点击完成。")
+                    button_clicked = True
+                    
+                    # Immediate Check: Call check_quota_limit() immediately after clicking.
+                    await check_quota_limit(self.page, self.req_id)
+
+                except Exception as click_err:
+                    self.logger.error(f"[{self.req_id}] ❌ 提交按钮点击失败: {click_err}")
+                    # Don't snapshot here, retry mechanism handles it or next methods try
+                    # await save_error_snapshot(f"submit_button_click_fail_{self.req_id}")
+
+                if not button_clicked:
+                    self.logger.info(f"[{self.req_id}] 按钮提交失败，尝试回车键提交...")
+                    submitted_successfully = await self._try_enter_submit(prompt_textarea_locator, check_client_disconnected)
+                    if not submitted_successfully:
+                        self.logger.info(f"[{self.req_id}] 回车提交失败，尝试组合键提交...")
+                        combo_ok = await self._try_combo_submit(prompt_textarea_locator, check_client_disconnected)
+                        if not combo_ok:
+                            self.logger.error(f"[{self.req_id}] ❌ 组合键提交也失败。")
+                            raise Exception("Submit failed: Button, Enter, and Combo key all failed")
+
+                await self._check_disconnect(check_client_disconnected, "After Submit")
+                
+                # If we got here, success!
+                return
+
+            except Exception as e_input_submit:
+                self.logger.warning(f"[{self.req_id}] 输入/提交过程发生错误 (尝试 {attempt + 1}/{max_retries}): {e_input_submit}")
+                
+                if isinstance(e_input_submit, ClientDisconnectedError):
+                    raise # Don't retry if client disconnected
+
+                if isinstance(e_input_submit, QuotaExceededError):
+                    raise # Don't retry if quota exceeded
+                
+                if attempt < max_retries - 1:
+                    self.logger.info(f"[{self.req_id}] ⚠️ 遇到错误，尝试刷新页面并重试...")
+                    try:
+                        await save_error_snapshot(f"submit_retry_before_reload_{self.req_id}_{attempt}")
+                        await self.page.reload()
+                        # 等待页面加载完成，可能需要一些初始化时间
+                        await self.page.wait_for_load_state("domcontentloaded", timeout=30000)
+                        await asyncio.sleep(2) # Give it a bit more time
+                        self.logger.info(f"[{self.req_id}] ✅ 页面刷新完成，准备重试。")
+                    except Exception as reload_err:
+                        self.logger.error(f"[{self.req_id}] ❌ 页面刷新失败: {reload_err}")
+                        raise e_input_submit # If reload fails, raise original or reload error
+                else:
+                    self.logger.error(f"[{self.req_id}] ❌ 所有重试尝试均失败。")
+                    await save_error_snapshot(f"input_submit_error_final_{self.req_id}")
+                    raise e_input_submit
 
     async def _simulate_drag_drop_files(self, target_locator, files_list: List[str]) -> None:
         """将本地文件以拖放事件的方式注入到目标元素。
@@ -1289,7 +1340,7 @@ class PageController:
             self.logger.warning(f"[{self.req_id}] 组合键提交失败: {combo_err}")
             return False
 
-    async def get_response(self, check_client_disconnected: Callable) -> str:
+    async def get_response(self, check_client_disconnected: Callable, prompt_length: int, timeout: Optional[float] = None) -> str:
         """获取响应内容。"""
         self.logger.info(f"[{self.req_id}] 等待并获取响应...")
 
@@ -1309,7 +1360,8 @@ class PageController:
 
             self.logger.info(f"[{self.req_id}] 等待响应完成...")
             completion_detected = await _wait_for_response_completion(
-                self.page, input_field_locator, submit_button_locator, edit_button_locator, self.req_id, check_client_disconnected, None
+                self.page, input_field_locator, submit_button_locator, edit_button_locator, self.req_id, check_client_disconnected, None, prompt_length=prompt_length,
+                timeout=timeout
             )
 
             if not completion_detected:
