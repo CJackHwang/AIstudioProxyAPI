@@ -13,13 +13,14 @@ from .utils import use_stream_response, calculate_usage_stats, generate_sse_chun
 from .common_utils import random_id
 
 
-
 async def gen_sse_from_aux_stream(
     req_id: str,
     request: ChatCompletionRequest,
     model_name_for_stream: str,
     check_client_disconnected: Callable,
     event_to_set: Event,
+    timeout: float,
+    page: AsyncPage = None,
 ) -> AsyncGenerator[str, None]:
     """辅助流队列 -> OpenAI 兼容 SSE 生成器。
 
@@ -37,7 +38,7 @@ async def gen_sse_from_aux_stream(
     data_receiving = False
 
     try:
-        async for raw_data in use_stream_response(req_id):
+        async for raw_data in use_stream_response(req_id, timeout=timeout, page=page):
             data_receiving = True
 
             try:
@@ -236,6 +237,8 @@ async def gen_sse_from_playwright(
     request: ChatCompletionRequest,
     check_client_disconnected: Callable,
     completion_event: Event,
+    prompt_length: int,
+    timeout: float,
 ) -> AsyncGenerator[str, None]:
     """Playwright 最终响应 -> OpenAI 兼容 SSE 生成器。"""
     # Reuse already-imported helpers from utils to avoid repeated imports
@@ -245,7 +248,7 @@ async def gen_sse_from_playwright(
     data_receiving = False
     try:
         page_controller = PageController(page, logger, req_id)
-        final_content = await page_controller.get_response(check_client_disconnected)
+        final_content = await page_controller.get_response(check_client_disconnected, prompt_length=prompt_length, timeout=timeout)
         data_receiving = True
         lines = final_content.split('\n')
         for line_idx, line in enumerate(lines):

@@ -73,7 +73,6 @@ web_modules/
 .yarn-integrity
 
 # dotenv environment variables file
-.env
 .env.development.local
 .env.test.local
 .env.production.local
@@ -182,7 +181,6 @@ coverage.xml
 .pytest_cache/
 
 # Environments
-.env
 .venv
 env/
 venv/

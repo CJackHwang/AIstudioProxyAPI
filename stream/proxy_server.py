@@ -18,6 +18,12 @@ class ProxyServer:
         self.host = host
         self.port = port
         self.intercept_domains = intercept_domains or []
+        self.passthrough_domains = [
+            "feedback-pa.clients6.google.com",
+            "play.google.com",
+            "apis.google.com",
+            "accounts.google.com"
+        ]
         self.upstream_proxy = upstream_proxy
         self.queue = queue
         
@@ -32,11 +38,18 @@ class ProxyServer:
         
         # Set up logging
         self.logger = logging.getLogger('proxy_server')
+
+        # Keep track of background tasks to prevent them from being destroyed prematurely
+        self.background_tasks = set()
     
     def should_intercept(self, host):
         """
         Determine if the connection to the host should be intercepted
         """
+        # Check passthrough domains first
+        if host in self.passthrough_domains:
+            return False
+
         if host in self.intercept_domains:
             return True
 
@@ -53,6 +66,12 @@ class ProxyServer:
         """
         Handle a client connection
         """
+        # Track this task to prevent "Task was destroyed but it is pending" errors
+        current_task = asyncio.current_task()
+        if current_task:
+            self.background_tasks.add(current_task)
+            current_task.add_done_callback(self.background_tasks.discard)
+
         try:
             # Read the initial request line
             request_line = await reader.readline()
@@ -184,8 +203,13 @@ class ProxyServer:
                         break
                     writer.write(data)
                     await writer.drain()
+            except ConnectionResetError:
+                self.logger.debug("Connection reset by peer.")
             except Exception as e:
-                self.logger.error(f"Error forwarding data: {e}")
+                if getattr(e, 'winerror', None) == 10054:
+                    self.logger.debug("Connection reset by peer (WinError 10054).")
+                else:
+                    self.logger.error(f"Error forwarding data: {e}")
             finally:
                 writer.close()
         
@@ -261,8 +285,13 @@ class ProxyServer:
                         server_writer.write(data)
                         await server_writer.drain()
                         client_buffer.clear()
+            except ConnectionResetError:
+                self.logger.debug("Connection reset by peer processing client data.")
             except Exception as e:
-                self.logger.error(f"Error processing client data: {e}")
+                if getattr(e, 'winerror', None) == 10054:
+                    self.logger.debug("Connection reset by peer (WinError 10054) processing client data.")
+                else:
+                    self.logger.error(f"Error processing client data: {e}")
             finally:
                 server_writer.close()
         
@@ -314,8 +343,13 @@ class ProxyServer:
                     client_writer.write(data)
                     if b"0\r\n\r\n" in server_buffer:
                         server_buffer.clear()
+            except ConnectionResetError:
+                self.logger.debug("Connection reset by peer processing server data.")
             except Exception as e:
-                self.logger.error(f"Error processing server data: {e}")
+                if getattr(e, 'winerror', None) == 10054:
+                    self.logger.debug("Connection reset by peer (WinError 10054) processing server data.")
+                else:
+                    self.logger.error(f"Error processing server data: {e}")
             finally:
                 client_writer.close()
         
