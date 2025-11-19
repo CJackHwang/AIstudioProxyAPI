@@ -4,6 +4,10 @@ import os
 import sys
 from typing import Tuple
 
+class SSLWarningFilter(logging.Filter):
+    def filter(self, record):
+        return "APPLICATION_DATA_AFTER_CLOSE_NOTIFY" not in record.getMessage()
+
 from config import LOG_DIR, ACTIVE_AUTH_DIR, SAVED_AUTH_DIR, APP_LOG_FILE_PATH
 from models import StreamToLogger, WebSocketLogHandler, WebSocketConnectionManager
 
@@ -96,7 +100,11 @@ def setup_server_logging(
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("websockets").setLevel(logging.WARNING)
     logging.getLogger("playwright").setLevel(logging.WARNING)
-    logging.getLogger("asyncio").setLevel(logging.ERROR)
+    
+    # Suppress asyncio/SSL warnings
+    asyncio_logger = logging.getLogger("asyncio")
+    asyncio_logger.setLevel(logging.CRITICAL)
+    asyncio_logger.addFilter(SSLWarningFilter())
     
     # 记录初始化信息
     logger_instance.info("=" * 5 + " AIStudioProxyServer 日志系统已在 lifespan 中初始化 " + "=" * 5)

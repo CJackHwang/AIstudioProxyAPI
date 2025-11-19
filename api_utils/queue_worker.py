@@ -332,8 +332,25 @@ async def queue_worker() -> None:
                         from browser_utils.page_controller import PageController
                         page_controller = PageController(page_instance, logger, req_id)
                         logger.info(f"[{req_id}] (Worker) 执行聊天历史清空（{'流式' if completion_event else '非流式'}模式）...")
-                        await page_controller.clear_chat_history(client_disco_checker)
-                        logger.info(f"[{req_id}] (Worker) ✅ 聊天历史清空完成。")
+                        
+                        # 使用 dummy checker 确保清空操作不受客户端断开影响
+                        # 这是一个维护性任务，必须完成，不能因为客户端断开而中断
+                        dummy_checker = lambda stage: False
+                        
+                        try:
+                            await page_controller.clear_chat_history(dummy_checker)
+                            logger.info(f"[{req_id}] (Worker) ✅ 聊天历史清空完成。")
+                        except Exception as clear_chat_err:
+                            logger.error(f"[{req_id}] (Worker) ❌ 聊天历史清空失败: {clear_chat_err}")
+                            # 如果清空失败（例如因为页面状态错误），强制刷新页面以重置状态
+                            # 这能防止下一个请求卡死
+                            logger.warning(f"[{req_id}] (Worker) 尝试刷新页面以恢复状态...")
+                            try:
+                                await page_instance.reload()
+                                logger.info(f"[{req_id}] (Worker) ✅ 页面刷新成功。")
+                            except Exception as reload_err:
+                                logger.error(f"[{req_id}] (Worker) ❌ 页面刷新失败: {reload_err}")
+
                 else:
                     logger.info(f"[{req_id}] (Worker) 跳过聊天历史清空：缺少必要参数（submit_btn_loc: {bool(submit_btn_loc)}, client_disco_checker: {bool(client_disco_checker)}）")
             except Exception as clear_err:

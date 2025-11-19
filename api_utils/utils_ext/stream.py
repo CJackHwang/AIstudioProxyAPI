@@ -15,6 +15,7 @@ async def use_stream_response(req_id: str) -> AsyncGenerator[Any, None]:
 
     empty_count = 0
     max_empty_retries = 300
+    initial_wait_limit = 50  # 5 seconds TTFB timeout
     data_received = False
     has_content = False
     received_items_count = 0
@@ -77,6 +78,23 @@ async def use_stream_response(req_id: str) -> AsyncGenerator[Any, None]:
                             stale_done_ignored = False
             except (queue.Empty, asyncio.QueueEmpty):
                 empty_count += 1
+
+                # Fail-Fast TTFB Check
+                if received_items_count == 0 and empty_count >= initial_wait_limit:
+                    logger.error(f"[{req_id}] Stream has no data after {initial_wait_limit * 0.1} seconds, aborting (TTFB Timeout).")
+
+                    # Trigger Fail-Fast Browser Reload
+                    try:
+                        from server import page_instance
+                        if page_instance:
+                            logger.info(f"[{req_id}] Triggering fail-fast browser reload due to TTFB timeout...")
+                            await page_instance.reload()
+                    except Exception as reload_err:
+                        logger.error(f"[{req_id}] Failed to reload page during TTFB timeout: {reload_err}")
+
+                    yield {"done": True, "reason": "ttfb_timeout", "body": "", "function": []}
+                    return
+
                 if empty_count % 50 == 0:
                     logger.info(f"[{req_id}] 等待流数据... ({empty_count}/{max_empty_retries}, 已收到:{received_items_count}项)")
                 if empty_count >= max_empty_retries:
