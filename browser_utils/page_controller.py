@@ -242,7 +242,7 @@ class PageController:
 
         # --- FIX START: Gemini 3.0 Bypass ---
         # Check if we are on the new Gemini 3.0 UI
-        new_thinking_dropdown = self.page.locator(THINKING_LEVEL_DROPDOWN_SELECTOR)
+        new_thinking_dropdown = self.page.locator(THINKING_LEVEL_SELECT_SELECTOR)
         if await new_thinking_dropdown.is_visible(timeout=500):
             self.logger.info(f"[{self.req_id}] 检测到 Gemini 3.0+ UI (Thinking Level Dropdown). 跳过预算滑块配置。")
             return
