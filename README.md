@@ -1,8 +1,6 @@
 # AI Studio Proxy API
 
-This is a Python-based proxy server that converts Google AI Studio's web interface into an OpenAI-compatible API. Through Camoufox (anti-fingerprinting Firefox) and Playwright automation, it provides stable API access.
-
-[![Star History Chart](https://api.star-history.com/svg?repos=CJackHwang/AIstudioProxyAPI&type=Date)](https://www.star-history.com/#CJackHwang/AIstudioProxyAPI&Date)
+This is a Python-based proxy server that converts Google AI Studio's web interface into an OpenAI-compatible API. Through Camoufox (anti-fingerprinting Firefox) and Playwright automation, it provides stable API access
 
 This project is generously sponsored by ZMTO. Visit their website: [https://zmto.com/](https://zmto.com/)
 
@@ -618,6 +616,8 @@ Welcome to submit Issues and Pull Requests!
 ## License
 
 [AGPLv3](LICENSE)
+
+[![Star History Chart](https://api.star-history.com/svg?repos=CJackHwang/AIstudioProxyAPI&type=Date)](https://www.star-history.com/#CJackHwang/AIstudioProxyAPI&Date)
 
 ## Development is difficult, please support the author
 
