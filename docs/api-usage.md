@@ -177,9 +177,9 @@ response = requests.post(
 使用预设值:
 ```json
 {
-  "reasoning_effort": "low"      // 1000 tokens
-  // 或 "medium"   (8000 tokens)
-  // 或 "high"     (24000 tokens)
+  "reasoning_effort": 1000       // 使用具体数值限制预算
+  // 或 8000
+  // 或 32768
 }
 ```
 

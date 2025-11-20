@@ -240,6 +240,45 @@
                             </div>
                         </div>
 
+                        <div class="settings-group" id="thinkingModeGroup">
+                            <label for="enableThinkingToggle">思考模式 (Thinking Mode):</label>
+                            <input type="checkbox" id="enableThinkingToggle">
+                            <div class="settings-description">
+                                关闭则不使用思考模式；开启时可选择“思考等级”或设置“思考预算”。
+                            </div>
+                        </div>
+
+                        <div class="settings-group" id="thinkingLevelGroup">
+                            <label for="thinkingLevelSelector">思考等级 (Thinking Level):</label>
+                            <select id="thinkingLevelSelector" class="settings-input">
+                                <option value="">未指定</option>
+                                <option value="low">Low</option>
+                                <option value="high">High</option>
+                            </select>
+                            <div class="settings-description">
+                                对于使用“思考等级”的模型（如 Gemini 3 Pro Preview），这里的选择将被优先使用。
+                            </div>
+                        </div>
+
+                        <div class="settings-group" id="manualBudgetGroup">
+                            <label for="enableManualBudgetToggle">限制思考预算 (Manual Budget):</label>
+                            <input type="checkbox" id="enableManualBudgetToggle">
+                            <div class="settings-description">
+                                打开以手动限制思考预算；关闭则不限制预算。
+                            </div>
+                        </div>
+
+                        <div class="settings-group" id="thinkingBudgetGroup">
+                            <label for="thinkingBudgetValue">思考预算 (Thinking Budget):</label>
+                            <div id="thinkingBudgetControlsContainer" class="settings-slider-container">
+                                <input type="range" id="thinkingBudgetSlider" class="settings-slider" min="128" max="32768" step="1" value="8192">
+                                <input type="number" id="thinkingBudgetValue" class="settings-number" min="128" max="32768" step="1" value="8192">
+                            </div>
+                            <div class="settings-description">
+                                对于使用预算的模型，设定具体的思考 Token 数。若同时指定“思考等级”，将优先使用等级。
+                            </div>
+                        </div>
+
                         <div class="settings-group">
                             <label for="stopSequences">停止序列 (Stop Sequences):</label>
                             <input type="text" id="stopSequences" class="settings-input" placeholder="用逗号分隔多个停止序列">
@@ -247,6 +286,15 @@
                                 模型遇到这些序列时会停止生成。多个序列用逗号分隔。
                                 <br>留空表示使用服务器默认值。
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <h3>工具</h3>
+                        <div class="settings-group">
+                            <label for="enableGoogleSearchToggle">Grounding with Google Search</label>
+                            <input type="checkbox" id="enableGoogleSearchToggle">
+                            <div class="settings-description">启用搜索作为工具以改进事实性。</div>
                         </div>
                     </div>
 
