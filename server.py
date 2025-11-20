@@ -131,7 +131,7 @@ app = create_app()
 async def quota_watchdog():
     """
     Background watchdog to monitor quota exceeded events and trigger immediate rotation.
-    Runs in an infinite loop checking the flag every second.
+    Uses Event.wait() for instant reaction instead of polling.
     """
     from config.global_state import GlobalState
     from browser_utils.auth_rotation import perform_auth_rotation
@@ -139,27 +139,28 @@ async def quota_watchdog():
     logger.info("👀 Quota Watchdog Started")
     while True:
         try:
-            await asyncio.sleep(1)
+            # Wait for the event signal (Instant Wakeup)
+            await GlobalState.QUOTA_EXCEEDED_EVENT.wait()
             
+            logger.critical("🚨 Watchdog detected Quota Exceeded! Initiating Rotation...")
+            
+            # Check if already rotating to avoid double trigger
+            if not GlobalState.AUTH_ROTATION_LOCK.is_set():
+                 logger.info("Watchdog: Rotation already in progress (Lock is clear). Waiting...")
+                 await asyncio.sleep(1)
+                 continue
+            
+            # Force rotation
+            success = await perform_auth_rotation()
+            if success:
+                logger.info("Watchdog: Rotation triggered and completed successfully.")
+            else:
+                logger.error("Watchdog: Rotation triggered but failed.")
+            
+            # Ensure event/flag is cleared
             if GlobalState.IS_QUOTA_EXCEEDED:
-                logger.critical("🚨 Watchdog detected Quota Exceeded! Initiating Rotation...")
-                
-                # Check if already rotating to avoid double trigger
-                if not GlobalState.AUTH_ROTATION_LOCK.is_set():
-                     logger.info("Watchdog: Rotation already in progress (Lock is clear). Waiting...")
-                     continue
-                
-                # Force rotation
-                success = await perform_auth_rotation()
-                if success:
-                    logger.info("Watchdog: Rotation triggered and completed successfully.")
-                else:
-                    logger.error("Watchdog: Rotation triggered but failed.")
-                
-                # Ensure event/flag is cleared
-                if GlobalState.IS_QUOTA_EXCEEDED:
-                     logger.warning("Watchdog: Quota flag still set after rotation. Forcing reset.")
-                     GlobalState.reset_quota_status()
+                 logger.warning("Watchdog: Quota flag still set after rotation. Forcing reset.")
+                 GlobalState.reset_quota_status()
                      
         except asyncio.CancelledError:
             logger.info("Watchdog: Task cancelled.")

@@ -27,7 +27,7 @@ async def chat_completions(
 
     if GlobalState.IS_QUOTA_EXCEEDED:
         logger.warning(f"[{req_id}] ⛔ Rejected incoming request due to active Quota Lock.")
-        raise HTTPException(status_code=429, detail={"error": "Quota exceeded. Please restart with a new profile."})
+        raise HTTPException(status_code=503, detail={"error": "Quota exceeded. System is rotating credentials. Please retry in a few seconds."})
 
     launch_mode = get_environment_variable('LAUNCH_MODE', 'unknown')
     browser_page_critical = launch_mode != "direct_debug_no_browser"

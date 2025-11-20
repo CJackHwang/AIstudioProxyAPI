@@ -20,6 +20,11 @@ _HISTORY_RETENTION_SECONDS = 3600 * 2 # 2 hours retention for history
 _COOLDOWN_PROFILES = {}
 _COOLDOWN_SECONDS = 900 # 15 minutes cooldown
 
+# [FINAL-02] Depletion Guard: Track rotation attempts
+_ROTATION_TIMESTAMPS = []
+_ROTATION_LIMIT_WINDOW = 60 # seconds
+_ROTATION_LIMIT_COUNT = 3   # max attempts per window
+
 def _get_next_profile() -> Optional[str]:
     """
     Scans auth_profiles/saved and auth_profiles/active to find the next best profile.
@@ -89,6 +94,36 @@ async def perform_auth_rotation() -> bool:
     if not GlobalState.AUTH_ROTATION_LOCK.is_set():
         logger.info("⚠️ Rotation already in progress (Lock is set). Skipping duplicate trigger.")
         return True
+
+    # [FINAL-02] Depletion Guard Check
+    global _ROTATION_TIMESTAMPS
+    current_time = time.time()
+    # Filter timestamps within the window
+    _ROTATION_TIMESTAMPS = [t for t in _ROTATION_TIMESTAMPS if current_time - t < _ROTATION_LIMIT_WINDOW]
+    
+    if len(_ROTATION_TIMESTAMPS) >= _ROTATION_LIMIT_COUNT:
+        logger.critical("🚨 CRITICAL: TOO MANY ROTATIONS! All accounts may be exhausted. Stopping Browser & Locking API.")
+        
+        # Stop everything
+        if server.page_instance:
+            try:
+                await server.page_instance.close()
+            except Exception: pass
+        if server.browser_instance:
+            try:
+                await server.browser_instance.close()
+            except Exception: pass
+            
+        server.page_instance = None
+        server.browser_instance = None
+        server.is_browser_connected = False
+        
+        # PERMANENT LOCK (Do not release GlobalState.AUTH_ROTATION_LOCK)
+        # We leave the lock cleared so no new requests can proceed.
+        return False
+
+    # Record this attempt
+    _ROTATION_TIMESTAMPS.append(current_time)
 
     logger.info("🔄 Starting Auth Profile Rotation (Full Browser Restart)...")
     

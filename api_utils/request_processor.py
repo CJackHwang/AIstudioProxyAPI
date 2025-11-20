@@ -638,16 +638,13 @@ async def _process_request_refactored(
         if not result_future.done():
             result_future.set_exception(http_err)
     except QuotaExceededError as quota_err:
-        context['logger'].warning(f"[{req_id}] 🚫 Quota Exceeded detected: {quota_err}. Triggering Auth Rotation...")
+        context['logger'].warning(f"[{req_id}] 🚫 Quota Exceeded detected: {quota_err}. Waiting for Watchdog to rotate...")
         
-        # Trigger rotation
-        try:
-            from browser_utils.auth_rotation import perform_auth_rotation
-            # We await it to ensure system stabilizes, but for THIS request, it is likely failed.
-            # Ideally we could retry recursively, but for now we fail with 503 so client retries.
-            await perform_auth_rotation()
-        except Exception as rot_err:
-            context['logger'].error(f"[{req_id}] ❌ Failed to trigger auth rotation: {rot_err}")
+        # [FINAL-01] Enforce Flag Ownership: Do NOT trigger rotation here.
+        # We let the Watchdog handle the rotation to ensure the flag is managed correctly.
+        # We simply ensure the flag is set (in case it wasn't already) and return 503.
+        if not GlobalState.IS_QUOTA_EXCEEDED:
+             GlobalState.set_quota_exceeded()
             
         if not result_future.done():
             result_future.set_exception(

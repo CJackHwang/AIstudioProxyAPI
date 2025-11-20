@@ -62,6 +62,11 @@ async def use_stream_response(req_id: str, timeout: float = 5.0, page=None, chec
 
     try:
         while True:
+            # [ROBUST-02] Check for Quota Exceeded
+            if GlobalState.IS_QUOTA_EXCEEDED:
+                logger.warning(f"[{req_id}] ⛔ Quota detected during wait loop. Aborting request immediately.")
+                raise QuotaExceededError("Global Quota Limit Reached during stream wait.")
+
             try:
                 data = STREAM_QUEUE.get_nowait()
                 if data is None:
