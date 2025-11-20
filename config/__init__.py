@@ -68,6 +68,18 @@ __all__ = [
     'USE_URL_CONTEXT_SELECTOR',
     'UPLOAD_BUTTON_SELECTOR',
     
+    # --- 新增：思考模式相关选择器 ---
+    'ENABLE_THINKING_MODE_TOGGLE_SELECTOR',
+    'SET_THINKING_BUDGET_TOGGLE_SELECTOR',
+    'THINKING_BUDGET_INPUT_SELECTOR',
+    'THINKING_LEVEL_DROPDOWN_SELECTOR',
+    'THINKING_LEVEL_SELECT_SELECTOR',
+    'THINKING_LEVEL_OPTION_LOW_SELECTOR',
+    'THINKING_LEVEL_OPTION_HIGH_SELECTOR',
+    
+    # --- 新增：Google Search 相关选择器 ---
+    'GROUNDING_WITH_GOOGLE_SEARCH_TOGGLE_SELECTOR',
+    
     # 设置配置
     'DEBUG_LOGS_ENABLED',
     'TRACE_LOGS_ENABLED',
@@ -82,9 +94,15 @@ __all__ = [
     'NO_PROXY_ENV',
     'ENABLE_SCRIPT_INJECTION',
     'USERSCRIPT_PATH',
+    
+    # --- 新增：功能开关设置 ---
+    'ENABLE_THINKING_BUDGET',
+    'DEFAULT_THINKING_BUDGET',
+    'ENABLE_GOOGLE_SEARCH',
+    'ENABLE_URL_CONTEXT',
 
     # 工具函数
     'get_environment_variable',
     'get_boolean_env',
     'get_int_env',
-] 
+]

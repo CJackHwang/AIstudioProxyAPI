@@ -9,7 +9,8 @@ from .operations import (
     get_response_via_copy_button,
     _wait_for_response_completion,
     _get_final_response_content,
-    get_raw_text_content
+    get_raw_text_content,
+    check_quota_limit  # Added this as it is now a key operation
 )
 from .model_management import (
     switch_ai_studio_model,
@@ -22,6 +23,7 @@ from .model_management import (
     _verify_and_apply_ui_state
 )
 from .script_manager import ScriptManager, script_manager
+from .page_controller import PageController  # Added PageController
 
 __all__ = [
     # 初始化相关
@@ -39,6 +41,7 @@ __all__ = [
     '_wait_for_response_completion',
     '_get_final_response_content',
     'get_raw_text_content',
+    'check_quota_limit',
     
     # 模型管理相关
     'switch_ai_studio_model',
@@ -52,5 +55,8 @@ __all__ = [
 
     # 脚本管理相关
     'ScriptManager',
-    'script_manager'
+    'script_manager',
+
+    # 页面控制器
+    'PageController'
 ]

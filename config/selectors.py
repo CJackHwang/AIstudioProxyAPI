@@ -67,7 +67,10 @@ SET_THINKING_BUDGET_TOGGLE_SELECTOR = (
 # 思考预算输入框
 THINKING_BUDGET_INPUT_SELECTOR = '[data-test-slider] input[type="number"]'
 
-# 思考等级下拉
+# 思考等级下拉 (Gemini 3.0+ UI Detection) - 必须包含此项
+THINKING_LEVEL_DROPDOWN_SELECTOR = 'mat-select[aria-label="Thinking Level"]'
+
+# 思考等级下拉 (通用选择器)
 THINKING_LEVEL_SELECT_SELECTOR = '[role="combobox"][aria-label="Thinking Level"], mat-select[aria-label="Thinking Level"], [role="combobox"][aria-label="Thinking level"], mat-select[aria-label="Thinking level"]'
 THINKING_LEVEL_OPTION_LOW_SELECTOR = '[role="listbox"][aria-label="Thinking Level"] [role="option"]:has-text("Low"), [role="listbox"][aria-label="Thinking level"] [role="option"]:has-text("Low")'
 THINKING_LEVEL_OPTION_HIGH_SELECTOR = '[role="listbox"][aria-label="Thinking Level"] [role="option"]:has-text("High"), [role="listbox"][aria-label="Thinking level"] [role="option"]:has-text("High")'
