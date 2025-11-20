@@ -21,9 +21,10 @@ async def queue_worker() -> None:
     """队列工作器，处理请求队列中的任务"""
     # 导入全局变量
     from server import (
-        logger, request_queue, processing_lock, model_switching_lock, 
+        logger, request_queue, processing_lock, model_switching_lock,
         params_cache_lock
     )
+    from config.global_state import GlobalState
     
     logger.info("--- 队列 Worker 已启动 ---")
     
@@ -108,6 +109,13 @@ async def queue_worker() -> None:
             request_data = request_item["request_data"]
             http_request = request_item["http_request"]
             result_future = request_item["result_future"]
+
+            if GlobalState.IS_QUOTA_EXCEEDED:
+                logger.warning(f"[{req_id}] (Worker) ⛔ Quota exceeded flag is active. Rejecting queued request.")
+                if not result_future.done():
+                    result_future.set_exception(HTTPException(status_code=429, detail="Quota exceeded. Please restart with a new profile."))
+                request_queue.task_done()
+                continue
 
             if request_item.get("cancelled", False):
                 logger.info(f"[{req_id}] (Worker) 请求已取消，跳过。")
@@ -195,6 +203,14 @@ async def queue_worker() -> None:
                                 nonlocal client_disconnected_early
                                 while not completion_event.is_set():
                                     try:
+                                        # Check Global Quota State
+                                        if GlobalState.IS_QUOTA_EXCEEDED:
+                                            logger.critical(f"[{req_id}] (Worker) ⛔ Quota Exceeded detected mid-stream! Aborting worker wait.")
+                                            client_disconnected_early = True # Treat as early exit to skip button handling
+                                            if not completion_event.is_set():
+                                                completion_event.set()
+                                            break
+
                                         # 主动检查客户端是否断开连接
                                         is_connected = await _test_client_connection(req_id, http_request)
                                         if not is_connected:

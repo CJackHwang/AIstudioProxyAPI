@@ -6,6 +6,7 @@ from asyncio import Queue, Future
 from fastapi import Depends, HTTPException, Request
 from ..dependencies import get_logger, get_request_queue, get_server_state, get_worker_task
 from config import RESPONSE_COMPLETION_TIMEOUT
+from config.global_state import GlobalState
 from models import ChatCompletionRequest
 import asyncio
 from fastapi.responses import JSONResponse
@@ -23,6 +24,10 @@ async def chat_completions(
 ) -> JSONResponse:
     req_id = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=7))
     logger.info(f"[{req_id}] 收到 /v1/chat/completions 请求 (Stream={request.stream})")
+
+    if GlobalState.IS_QUOTA_EXCEEDED:
+        logger.warning(f"[{req_id}] ⛔ Rejected incoming request due to active Quota Lock.")
+        raise HTTPException(status_code=429, detail={"error": "Quota exceeded. Please restart with a new profile."})
 
     launch_mode = get_environment_variable('LAUNCH_MODE', 'unknown')
     browser_page_critical = launch_mode != "direct_debug_no_browser"

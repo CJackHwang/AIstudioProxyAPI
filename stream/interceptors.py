@@ -2,6 +2,8 @@ import json
 import logging
 import re
 import zlib
+from urllib.parse import unquote
+from config.global_state import GlobalState
 
 class HttpInterceptor:
     """
@@ -34,6 +36,10 @@ class HttpInterceptor:
         # Check if the endpoint contains GenerateContent
         if 'GenerateContent' in path:
             return True
+            
+        # Check for jserror logging endpoint
+        if 'jserror' in path:
+            return True
         
         # Add more conditions as needed
         return False
@@ -48,6 +54,16 @@ class HttpInterceptor:
         # Log the request
         self.logger.info(f"Intercepted request to {host}{path}")
         
+        # Check for Quota Exceeded errors in jserror requests
+        if 'jserror' in path:
+            try:
+                decoded_path = unquote(path)
+                if any(keyword in decoded_path for keyword in ["exceeded quota", "RESOURCE_EXHAUSTED", "Failed to generate content"]):
+                    self.logger.critical(f"🚨 CRITICAL: Detected Quota Exceeded error in network traffic! URL: {path}")
+                    GlobalState.set_quota_exceeded()
+            except Exception as e:
+                self.logger.error(f"Error parsing jserror path: {e}")
+
         try:
             return request_data
         except (json.JSONDecodeError, UnicodeDecodeError):

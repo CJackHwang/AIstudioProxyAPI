@@ -9,6 +9,7 @@ from playwright.async_api import Page as AsyncPage
 
 from models import ClientDisconnectedError, ChatCompletionRequest
 from config import CHAT_COMPLETION_ID_PREFIX
+from config.global_state import GlobalState
 from .utils import use_stream_response, calculate_usage_stats, generate_sse_chunk, generate_sse_stop_chunk
 from .common_utils import random_id
 
@@ -39,6 +40,14 @@ async def gen_sse_from_aux_stream(
 
     try:
         async for raw_data in use_stream_response(req_id, timeout=timeout, page=page):
+            if GlobalState.IS_QUOTA_EXCEEDED:
+                logger.error(f"[{req_id}] ⛔ Quota exceeded detected during stream! Aborting.")
+                yield generate_sse_chunk("\n\n[SYSTEM: Quota Exceeded. Stopping.]", req_id, model_name_for_stream)
+                yield generate_sse_stop_chunk(req_id, model_name_for_stream)
+                if not event_to_set.is_set():
+                    event_to_set.set()
+                break
+
             data_receiving = True
 
             try:

@@ -27,6 +27,7 @@ OVERLAY_SELECTOR = ".mat-mdc-dialog-inner-container"
 
 # --- 错误提示选择器 ---
 ERROR_TOAST_SELECTOR = "div.toast.warning, div.toast.error"
+QUOTA_EXCEEDED_SELECTOR = "ms-callout.error-callout .message"
 
 # --- 编辑相关选择器 ---
 EDIT_MESSAGE_BUTTON_SELECTOR = (
