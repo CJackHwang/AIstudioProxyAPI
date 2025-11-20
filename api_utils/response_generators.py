@@ -39,7 +39,7 @@ async def gen_sse_from_aux_stream(
     data_receiving = False
 
     try:
-        async for raw_data in use_stream_response(req_id, timeout=timeout, page=page):
+        async for raw_data in use_stream_response(req_id, timeout=timeout, page=page, check_client_disconnected=check_client_disconnected):
             if GlobalState.IS_QUOTA_EXCEEDED:
                 logger.error(f"[{req_id}] ⛔ Quota exceeded detected during stream! Aborting.")
                 yield generate_sse_chunk("\n\n[SYSTEM: Quota Exceeded. Stopping.]", req_id, model_name_for_stream)

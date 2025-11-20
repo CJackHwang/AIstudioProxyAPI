@@ -266,7 +266,7 @@ def _clean_userscript_headers(script_content: str) -> str:
     return '\n'.join(cleaned_lines)
 
 
-async def _initialize_page_logic(browser: AsyncBrowser):
+async def _initialize_page_logic(browser: AsyncBrowser, override_storage_state_path: Optional[str] = None):
     """初始化页面逻辑，连接到现有浏览器"""
     logger.info("--- 初始化页面逻辑 (连接到现有浏览器) ---")
     temp_context: Optional[AsyncBrowserContext] = None
@@ -275,7 +275,14 @@ async def _initialize_page_logic(browser: AsyncBrowser):
     logger.info(f"   检测到启动模式: {launch_mode}")
     loop = asyncio.get_running_loop()
 
-    if launch_mode == 'headless' or launch_mode == 'virtual_headless':
+    if override_storage_state_path:
+        logger.info(f"   🔥 使用覆盖的认证文件路径: {override_storage_state_path}")
+        if os.path.exists(override_storage_state_path):
+            storage_state_path_to_use = override_storage_state_path
+        else:
+            logger.error(f"   ❌ 覆盖的认证文件不存在: {override_storage_state_path}")
+            raise RuntimeError(f"Override auth file not found: {override_storage_state_path}")
+    elif launch_mode == 'headless' or launch_mode == 'virtual_headless':
         auth_filename = os.environ.get('ACTIVE_AUTH_JSON_PATH')
         if auth_filename:
             constructed_path = auth_filename
@@ -308,8 +315,12 @@ async def _initialize_page_logic(browser: AsyncBrowser):
         context_options: Dict[str, Any] = {'viewport': {'width': 460, 'height': 800}}
         if storage_state_path_to_use:
             context_options['storage_state'] = storage_state_path_to_use
+            import server
+            server.current_auth_profile_path = storage_state_path_to_use
             logger.info(f"   (使用 storage_state='{os.path.basename(storage_state_path_to_use)}')")
         else:
+            import server
+            server.current_auth_profile_path = None
             logger.info("   (不使用 storage_state)")
 
         # 代理设置需要从server模块中获取

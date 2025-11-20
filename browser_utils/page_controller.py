@@ -47,6 +47,7 @@ from config import (
     UPLOAD_BUTTON_SELECTOR,
     USE_URL_CONTEXT_SELECTOR,
     WAIT_FOR_ELEMENT_TIMEOUT_MS,
+    AI_STUDIO_URL_PATTERN,
 )
 from models import ClientDisconnectedError, QuotaExceededError
 from .initialization import enable_temporary_chat_mode
@@ -1580,6 +1581,59 @@ class PageController:
             self.logger.error(f"[{self.req_id}] 通过上传菜单设置文件失败: {e}")
             return False
 
+    async def _safe_reload_page(self):
+        """
+        安全地刷新页面。如果刷新超时，则关闭卡死的标签页并在同一上下文中创建一个新标签页。
+        这样可以保留浏览器进程和身份验证状态（存储在上下文中）。
+        """
+        import server
+        from .operations import _handle_model_list_response
+
+        try:
+            self.logger.info(f"[{self.req_id}] 尝试重新加载页面...")
+            # 尝试标准重新加载
+            await self.page.reload(timeout=30000)
+            await self.page.wait_for_load_state("domcontentloaded", timeout=30000)
+            self.logger.info(f"[{self.req_id}] ✅ 页面重新加载成功。")
+        except TimeoutError:
+            self.logger.warning(f"[{self.req_id}] ⚠️ 页面重新加载超时。正在启动优化的标签页恢复（软终止）...")
+            
+            try:
+                # 获取当前上下文
+                context = self.page.context
+                
+                # 1. 关闭卡死的页面
+                try:
+                    await self.page.close()
+                    self.logger.info(f"[{self.req_id}] 卡死的标签页已关闭。")
+                except Exception as close_err:
+                    self.logger.warning(f"[{self.req_id}] 关闭卡死标签页时出错 (可能已关闭): {close_err}")
+
+                # 2. 在同一上下文中创建新页面
+                new_page = await context.new_page()
+                self.logger.info(f"[{self.req_id}] 新标签页已创建。")
+
+                # 3. 更新 PageController 的页面引用
+                self.page = new_page
+                
+                # 4. 更新全局 server 状态中的页面引用
+                server.page_instance = new_page
+                
+                # 5. 重新附加必要的事件监听器
+                self.logger.info(f"[{self.req_id}] 正在重新附加模型列表响应监听器...")
+                new_page.on("response", _handle_model_list_response)
+
+                # 6. 导航到 AI Studio
+                target_url = f"https://{AI_STUDIO_URL_PATTERN}prompts/new_chat"
+                self.logger.info(f"[{self.req_id}] 正在导航到: {target_url}")
+                await new_page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
+                
+                self.logger.info(f"[{self.req_id}] ✅ 标签页恢复成功！已在同一上下文中加载新页面。")
+
+            except Exception as recovery_err:
+                self.logger.error(f"[{self.req_id}] ❌ 标签页恢复失败: {recovery_err}")
+                raise recovery_err
+
     async def submit_prompt(self, prompt: str, image_list: List, check_client_disconnected: Callable):
         """提交提示到页面。包含重试和自动刷新机制，以及多种提交方式的回退。"""
         max_retries = 2
@@ -1681,11 +1735,10 @@ class PageController:
                     self.logger.info(f"[{self.req_id}] ⚠️ 遇到错误，尝试刷新页面并重试...")
                     try:
                         await save_error_snapshot(f"submit_retry_before_reload_{self.req_id}_{attempt}")
-                        await self.page.reload()
-                        # 等待页面加载完成，可能需要一些初始化时间
-                        await self.page.wait_for_load_state("domcontentloaded", timeout=30000)
+                        # 使用新的安全刷新方法
+                        await self._safe_reload_page()
                         await asyncio.sleep(2) # Give it a bit more time
-                        self.logger.info(f"[{self.req_id}] ✅ 页面刷新完成，准备重试。")
+                        self.logger.info(f"[{self.req_id}] ✅ 页面刷新/恢复完成，准备重试。")
                     except Exception as reload_err:
                         self.logger.error(f"[{self.req_id}] ❌ 页面刷新失败: {reload_err}")
                         raise e_input_submit # If reload fails, raise original or reload error
