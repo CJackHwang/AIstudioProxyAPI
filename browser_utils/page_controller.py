@@ -195,6 +195,9 @@ class PageController:
             self.logger.info(f"[{self.req_id}] 该模型无主思考开关，跳过开关设置。")
 
         if not desired_enabled:
+            # 跳过无预算开关的模型
+            if self._uses_thinking_level(model_id_to_use):
+                 return
             # 若关闭思考，则确保预算开关关闭（兼容旧UI）
             await self._control_thinking_budget_toggle(
                 should_be_checked=False,
