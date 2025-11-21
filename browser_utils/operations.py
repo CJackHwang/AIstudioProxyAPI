@@ -16,24 +16,41 @@ from config import (
     DEBUG_LOGS_ENABLED,
     MODELS_ENDPOINT_URL_CONTAINS,
     ERROR_TOAST_SELECTOR,
+    QUOTA_EXCEEDED_SELECTOR,
     CLICK_TIMEOUT_MS,
     RESPONSE_COMPLETION_TIMEOUT,
     INITIAL_WAIT_MS_BEFORE_POLLING,
 )
+from config.global_state import GlobalState
 from models import ClientDisconnectedError, QuotaExceededError
 
 logger = logging.getLogger("AIStudioProxyServer")
 
 async def check_quota_limit(page: AsyncPage, req_id: str) -> None:
     """Check for blocking quota errors immediately."""
+    # 1. Check Global State first
+    if GlobalState.IS_QUOTA_EXCEEDED:
+        raise QuotaExceededError("Global Quota Exceeded Flag is Active.")
+
     try:
-        # Selector for the quota warning
+        # 2. Check UI for Quota Error (New Selector)
+        if await page.locator(QUOTA_EXCEEDED_SELECTOR).count() > 0:
+            element = page.locator(QUOTA_EXCEEDED_SELECTOR).first
+            if await element.is_visible(timeout=500):
+                text = await element.text_content()
+                if text and "user has exceeded quota" in text.lower():
+                    logger.critical(f"[{req_id}] ❌ Quota Limit Detected via UI! Text: {text}")
+                    GlobalState.set_quota_exceeded()
+                    raise QuotaExceededError(f"Quota exceeded detected via UI: {text}")
+
+        # 3. Check UI for Quota Error (Old Selector - Legacy Fallback)
         quota_selector = 'ms-callout.warning-callout:has-text("You are out of free generations")'
         if await page.locator(quota_selector).count() > 0:
-            # Double check visibility to be sure
             if await page.locator(quota_selector).first.is_visible(timeout=500):
-                logger.error(f"[{req_id}] ❌ Quota Limit Detected! Account is out of free generations.")
+                logger.critical(f"[{req_id}] ❌ Quota Limit Detected (Legacy)! Account is out of free generations.")
+                GlobalState.set_quota_exceeded()
                 raise QuotaExceededError("AI Studio Account is out of free generations.")
+                
     except QuotaExceededError:
         raise
     except Exception as e:

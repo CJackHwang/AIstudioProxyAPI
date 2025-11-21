@@ -208,6 +208,9 @@ class ProxyServer:
             except Exception as e:
                 if getattr(e, 'winerror', None) == 10054:
                     self.logger.debug("Connection reset by peer (WinError 10054).")
+                elif isinstance(e, ssl.SSLError) and "APPLICATION_DATA_AFTER_CLOSE_NOTIFY" in str(e):
+                    self.logger.debug("Connection closed by peer (SSL notify)")
+                    return
                 else:
                     self.logger.error(f"Error forwarding data: {e}")
             finally:
@@ -290,6 +293,9 @@ class ProxyServer:
             except Exception as e:
                 if getattr(e, 'winerror', None) == 10054:
                     self.logger.debug("Connection reset by peer (WinError 10054) processing client data.")
+                elif isinstance(e, ssl.SSLError) and "APPLICATION_DATA_AFTER_CLOSE_NOTIFY" in str(e):
+                    self.logger.debug("Connection closed by peer (SSL notify) processing client data")
+                    return
                 else:
                     self.logger.error(f"Error processing client data: {e}")
             finally:
@@ -348,6 +354,9 @@ class ProxyServer:
             except Exception as e:
                 if getattr(e, 'winerror', None) == 10054:
                     self.logger.debug("Connection reset by peer (WinError 10054) processing server data.")
+                elif isinstance(e, ssl.SSLError) and "APPLICATION_DATA_AFTER_CLOSE_NOTIFY" in str(e):
+                    self.logger.debug("Connection closed by peer (SSL notify) processing server data")
+                    return
                 else:
                     self.logger.error(f"Error processing server data: {e}")
             finally:

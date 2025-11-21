@@ -109,6 +109,7 @@ parsed_model_list: List[Dict[str, Any]] = []
 model_list_fetch_event = asyncio.Event()
 
 current_ai_studio_model_id: Optional[str] = None
+current_auth_profile_path: Optional[str] = None
 model_switching_lock: Optional[Lock] = None
 
 excluded_model_ids: Set[str] = set()
@@ -126,6 +127,48 @@ log_ws_manager = None
 
 # --- FastAPI App 定义 ---
 app = create_app()
+
+async def quota_watchdog():
+    """
+    Background watchdog to monitor quota exceeded events and trigger immediate rotation.
+    Uses Event.wait() for instant reaction instead of polling.
+    """
+    from config.global_state import GlobalState
+    from browser_utils.auth_rotation import perform_auth_rotation
+    
+    logger.info("👀 Quota Watchdog Started")
+    while True:
+        try:
+            # Wait for the event signal (Instant Wakeup)
+            await GlobalState.QUOTA_EXCEEDED_EVENT.wait()
+            
+            logger.critical("🚨 Watchdog detected Quota Exceeded! Initiating Rotation...")
+            
+            # Check if already rotating to avoid double trigger
+            if not GlobalState.AUTH_ROTATION_LOCK.is_set():
+                 logger.info("Watchdog: Rotation already in progress (Lock is clear). Waiting...")
+                 await asyncio.sleep(1)
+                 continue
+            
+            # Force rotation
+            success = await perform_auth_rotation()
+            if success:
+                logger.info("Watchdog: Rotation triggered and completed successfully.")
+            else:
+                logger.error("Watchdog: Rotation triggered but failed.")
+            
+            # Ensure event/flag is cleared
+            if GlobalState.IS_QUOTA_EXCEEDED:
+                 logger.warning("Watchdog: Quota flag still set after rotation. Forcing reset.")
+                 GlobalState.reset_quota_status()
+                     
+        except asyncio.CancelledError:
+            logger.info("Watchdog: Task cancelled.")
+            break
+        except Exception as e:
+            logger.error(f"Watchdog Error: {e}", exc_info=True)
+            await asyncio.sleep(5)
+
 
 # --- Main Guard ---
 if __name__ == "__main__":

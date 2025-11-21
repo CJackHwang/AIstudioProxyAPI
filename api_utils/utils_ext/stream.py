@@ -3,15 +3,20 @@ import json
 from typing import Any, AsyncGenerator
 
 
-async def use_stream_response(req_id: str, timeout: float = 5.0, page=None) -> AsyncGenerator[Any, None]:
+from typing import Any, AsyncGenerator, Optional, Callable
+
+async def use_stream_response(req_id: str, timeout: float = 5.0, page=None, check_client_disconnected: Optional[Callable] = None) -> AsyncGenerator[Any, None]:
     """Enhanced stream response handler with UI-based generation active checks.
     
     Args:
         req_id: Request identifier for logging
-        timeout: TTFB timeout in seconds  
+        timeout: TTFB timeout in seconds
         page: Playwright page instance for UI state checks
+        check_client_disconnected: Optional callback to check if client disconnected
     """
     from server import STREAM_QUEUE, logger
+    from models import ClientDisconnectedError, QuotaExceededError
+    from config.global_state import GlobalState
     import queue
 
     if STREAM_QUEUE is None:
@@ -57,6 +62,11 @@ async def use_stream_response(req_id: str, timeout: float = 5.0, page=None) -> A
 
     try:
         while True:
+            # [ROBUST-02] Check for Quota Exceeded
+            if GlobalState.IS_QUOTA_EXCEEDED:
+                logger.warning(f"[{req_id}] ⛔ Quota detected during wait loop. Aborting request immediately.")
+                raise QuotaExceededError("Global Quota Limit Reached during stream wait.")
+
             try:
                 data = STREAM_QUEUE.get_nowait()
                 if data is None:
@@ -113,6 +123,14 @@ async def use_stream_response(req_id: str, timeout: float = 5.0, page=None) -> A
             except (queue.Empty, asyncio.QueueEmpty):
                 empty_count += 1
 
+                # Check for disconnect during wait
+                if check_client_disconnected:
+                    try:
+                        check_client_disconnected(f"Stream Queue Wait ({req_id})")
+                    except ClientDisconnectedError:
+                        logger.warning(f"[{req_id}] 客户端在流式队列等待期间断开连接。")
+                        raise
+
                 # Fail-Fast TTFB Check
                 if received_items_count == 0 and empty_count >= initial_wait_limit:
                     logger.error(f"[{req_id}] Stream has no data after {empty_count * 0.1:.1f} seconds, aborting (TTFB Timeout).")
@@ -166,13 +184,18 @@ async def use_stream_response(req_id: str, timeout: float = 5.0, page=None) -> A
                 await asyncio.sleep(0.1)
                 continue
     except Exception as e:
+        if isinstance(e, ClientDisconnectedError):
+             logger.info(f"[{req_id}] 停止流响应: 客户端已断开。")
+             raise e
         logger.error(f"[{req_id}] 使用流响应时出错: {e}")
         raise
     finally:
         logger.info(
             f"[{req_id}] 流响应使用完成，数据接收状态: {data_received}, 有内容: {has_content}, 收到项目数: {received_items_count}, "
-            f"曾忽略空done: {stale_done_ignored}"
+            f"曾忽略空done: {stale_done_ignored}. 开始清理队列..."
         )
+        # Trigger queue cleanup to prevent residual data
+        await clear_stream_queue()
 
 
 async def clear_stream_queue():

@@ -21,9 +21,10 @@ async def queue_worker() -> None:
     """队列工作器，处理请求队列中的任务"""
     # 导入全局变量
     from server import (
-        logger, request_queue, processing_lock, model_switching_lock, 
+        logger, request_queue, processing_lock, model_switching_lock,
         params_cache_lock
     )
+    from config.global_state import GlobalState
     
     logger.info("--- 队列 Worker 已启动 ---")
     
@@ -108,6 +109,13 @@ async def queue_worker() -> None:
             request_data = request_item["request_data"]
             http_request = request_item["http_request"]
             result_future = request_item["result_future"]
+
+            if GlobalState.IS_QUOTA_EXCEEDED:
+                logger.warning(f"[{req_id}] (Worker) ⛔ Quota exceeded flag is active. Rejecting queued request.")
+                if not result_future.done():
+                    result_future.set_exception(HTTPException(status_code=429, detail="Quota exceeded. Please restart with a new profile."))
+                request_queue.task_done()
+                continue
 
             if request_item.get("cancelled", False):
                 logger.info(f"[{req_id}] (Worker) 请求已取消，跳过。")
@@ -195,6 +203,14 @@ async def queue_worker() -> None:
                                 nonlocal client_disconnected_early
                                 while not completion_event.is_set():
                                     try:
+                                        # Check Global Quota State
+                                        if GlobalState.IS_QUOTA_EXCEEDED:
+                                            logger.critical(f"[{req_id}] (Worker) ⛔ Quota Exceeded detected mid-stream! Aborting worker wait.")
+                                            client_disconnected_early = True # Treat as early exit to skip button handling
+                                            if not completion_event.is_set():
+                                                completion_event.set()
+                                            break
+
                                         # 主动检查客户端是否断开连接
                                         is_connected = await _test_client_connection(req_id, http_request)
                                         if not is_connected:
@@ -251,10 +267,22 @@ async def queue_worker() -> None:
                                 await asyncio.wait_for(asyncio.shield(result_future), timeout=RESPONSE_COMPLETION_TIMEOUT/1000 + 60)
                                 logger.info(f"[{req_id}] (Worker) ✅ 非流式处理完成。客户端提前断开: {client_disconnected_early}")
 
-                            # 如果客户端提前断开，跳过按钮状态处理
+                            # 如果客户端提前断开，尝试点击停止按钮以中止生成
                             if client_disconnected_early:
-                                logger.info(f"[{req_id}] (Worker) 客户端提前断开，跳过按钮状态处理")
-                            elif submit_btn_loc and client_disco_checker and completion_event:
+                                logger.info(f"[{req_id}] (Worker) 客户端提前断开，尝试停止生成...")
+                                if submit_btn_loc:
+                                    try:
+                                        is_button_enabled = await submit_btn_loc.is_enabled(timeout=2000)
+                                        if is_button_enabled:
+                                            logger.info(f"[{req_id}] (Worker) 发现停止按钮可用，正在点击以中止生成...")
+                                            await submit_btn_loc.click(timeout=5000, force=True)
+                                            logger.info(f"[{req_id}] (Worker) ✅ 已点击停止按钮。")
+                                        else:
+                                            logger.info(f"[{req_id}] (Worker) 停止按钮不可用，无需操作。")
+                                    except Exception as stop_err:
+                                        logger.warning(f"[{req_id}] (Worker) 尝试停止生成时出错: {stop_err}")
+
+                            if submit_btn_loc and client_disco_checker and completion_event and not client_disconnected_early:
                                     # 等待发送按钮禁用确认流式响应完全结束
                                     logger.info(f"[{req_id}] (Worker) 流式响应完成，检查并处理发送按钮状态...")
                                     wait_timeout_ms = 30000  # 30 seconds
@@ -326,8 +354,10 @@ async def queue_worker() -> None:
                 from api_utils import clear_stream_queue
                 await clear_stream_queue()
 
-                # 清空聊天历史（对于所有模式：流式和非流式）
-                if submit_btn_loc and client_disco_checker:
+                # [FIX-03] Worker Cleanup Short-Circuit
+                if GlobalState.IS_QUOTA_EXCEEDED:
+                    logger.warning(f"[{req_id}] (Worker) ⛔ Quota Exceeded flag detected! Skipping chat history cleanup to allow immediate rotation.")
+                elif submit_btn_loc and client_disco_checker:
                     from server import page_instance, is_page_ready
                     if page_instance and is_page_ready:
                         from browser_utils.page_controller import PageController

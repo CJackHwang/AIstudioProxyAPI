@@ -21,9 +21,10 @@ from config import (
     SUBMIT_BUTTON_SELECTOR,
 )
 from config import ONLY_COLLECT_CURRENT_USER_ATTACHMENTS, UPLOAD_FILES_DIR
+from config.global_state import GlobalState
 
 # --- models模块导入 ---
-from models import ChatCompletionRequest, ClientDisconnectedError
+from models import ChatCompletionRequest, ClientDisconnectedError, QuotaExceededError
 
 # --- browser_utils模块导入 ---
 from browser_utils import (
@@ -271,7 +272,7 @@ async def _handle_auxiliary_stream_response(
             logger.error(f"[{req_id}] 从队列获取流式数据时出错: {e}", exc_info=True)
         page = context['page']
         # 非流式：消费辅助队列的最终结果并组装 JSON 响应
-        async for raw_data in use_stream_response(req_id, page=page):
+        async for raw_data in use_stream_response(req_id, page=page, check_client_disconnected=check_client_disconnected):
             if completion_event and not completion_event.is_set():
                 completion_event.set()
             raise
@@ -283,7 +284,7 @@ async def _handle_auxiliary_stream_response(
         final_data_from_aux_stream = None
 
         # 非流式：消费辅助队列的最终结果并组装 JSON 响应
-        async for raw_data in use_stream_response(req_id):
+        async for raw_data in use_stream_response(req_id, check_client_disconnected=check_client_disconnected):
             check_client_disconnected(f"非流式辅助流 - 循环中 ({req_id}): ")
             
             # 确保 data 是字典类型
@@ -473,6 +474,12 @@ async def _process_request_refactored(
     from server import logger
     from config import get_environment_variable
 
+    # 0. Check Auth Rotation Lock
+    if not GlobalState.AUTH_ROTATION_LOCK.is_set():
+        logger.info(f"[{req_id}] [INFO] Request held: Waiting for auth rotation...")
+        await GlobalState.AUTH_ROTATION_LOCK.wait()
+        logger.info(f"[{req_id}] ▶️ Resuming after Auth Rotation.")
+
     is_connected = await _test_client_connection(req_id, http_request)
     if not is_connected:
         logger.info(f"[{req_id}] ✅ 核心处理前检测到客户端断开，提前退出节省资源")
@@ -599,6 +606,13 @@ async def _process_request_refactored(
 
         await page_controller.submit_prompt(prepared_prompt,image_list, check_client_disconnected)
         
+        # 刷新页面引用，因为 submit_prompt 可能会在恢复过程中更新页面
+        if page_controller.page != page:
+            context['logger'].info(f"[{req_id}] 检测到页面实例已更新 (Tab Recovery)，正在同步引用...")
+            page = page_controller.page
+            context['page'] = page
+            submit_button_locator = page.locator(SUBMIT_BUTTON_SELECTOR)
+
         # DYNAMIC TIMEOUT: Calculate timeout based on prompt length
         # Formula: 5s base + 1s for every 1000 characters
         dynamic_timeout = 5.0 + (len(prepared_prompt) / 1000.0)
@@ -623,6 +637,23 @@ async def _process_request_refactored(
         context['logger'].warning(f"[{req_id}] 捕获到 HTTP 异常: {http_err.status_code} - {http_err.detail}")
         if not result_future.done():
             result_future.set_exception(http_err)
+    except QuotaExceededError as quota_err:
+        context['logger'].warning(f"[{req_id}] 🚫 Quota Exceeded detected: {quota_err}. Waiting for Watchdog to rotate...")
+        
+        # [FINAL-01] Enforce Flag Ownership: Do NOT trigger rotation here.
+        # We let the Watchdog handle the rotation to ensure the flag is managed correctly.
+        # We simply ensure the flag is set (in case it wasn't already) and return 503.
+        if not GlobalState.IS_QUOTA_EXCEEDED:
+             GlobalState.set_quota_exceeded()
+            
+        if not result_future.done():
+            result_future.set_exception(
+                HTTPException(
+                    status_code=503,
+                    detail=f"[{req_id}] Quota Exceeded. System is rotating credentials. Please retry in a few seconds.",
+                    headers={"Retry-After": "5"}
+                )
+            )
     except PlaywrightAsyncError as pw_err:
         context['logger'].error(f"[{req_id}] 捕获到 Playwright 错误: {pw_err}")
         await save_error_snapshot(f"process_playwright_error_{req_id}")

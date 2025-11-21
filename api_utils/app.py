@@ -89,6 +89,11 @@ def _initialize_globals():
     server.model_switching_lock = Lock()
     server.params_cache_lock = Lock()
     auth_utils.initialize_keys()
+    
+    # Initialize Auth Rotation Lock
+    from config.global_state import GlobalState
+    GlobalState.init_rotation_lock()
+    
     server.logger.info("API keys and global locks initialized.")
 
 def _initialize_proxy_settings():
@@ -224,6 +229,10 @@ async def lifespan(app: FastAPI):
         else:
             raise RuntimeError("Failed to initialize browser/page, worker not started.")
 
+        # [CRITICAL FIX] Start the Quota Watchdog in the background
+        logger.info("👀 Starting Quota Watchdog Task...")
+        app.state.watchdog_task = asyncio.create_task(server.quota_watchdog())
+
         logger.info("Server startup complete.")
         server.is_initializing = False
         yield
@@ -233,6 +242,16 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(f"Application startup failed: {e}") from e
     finally:
         logger.info("Shutting down server...")
+
+        # [CRITICAL FIX] Cancel the watchdog on shutdown
+        if hasattr(app.state, "watchdog_task"):
+            logger.info("💤 Stopping Quota Watchdog...")
+            app.state.watchdog_task.cancel()
+            try:
+                await app.state.watchdog_task
+            except asyncio.CancelledError:
+                pass
+
         await _shutdown_resources()
         restore_original_streams(initial_stdout, initial_stderr)
         restore_original_streams(*original_streams)
