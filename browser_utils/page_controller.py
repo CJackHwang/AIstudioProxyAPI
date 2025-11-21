@@ -70,10 +70,9 @@ class PageController:
 
     async def _check_disconnect(self, check_client_disconnected: Callable, stage: str):
         """检查客户端是否断开连接。"""
-        if check_client_disconnected(stage):
-            raise ClientDisconnectedError(
-                f"[{self.req_id}] Client disconnected at stage: {stage}"
-            )
+        if check_client_disconnected is None:
+            return
+        check_client_disconnected(stage)
 
     async def adjust_parameters(
         self,

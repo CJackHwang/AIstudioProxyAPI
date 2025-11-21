@@ -10,7 +10,12 @@ from playwright.async_api import Page as AsyncPage
 from models import ClientDisconnectedError, ChatCompletionRequest
 from config import CHAT_COMPLETION_ID_PREFIX
 from config.global_state import GlobalState
-from .utils import use_stream_response, calculate_usage_stats, generate_sse_chunk, generate_sse_stop_chunk
+from .utils import (
+    use_stream_response,
+    calculate_usage_stats,
+    generate_sse_chunk,
+    generate_sse_stop_chunk,
+)
 from .common_utils import random_id
 
 
@@ -29,6 +34,8 @@ async def gen_sse_from_aux_stream(
     """
     from server import logger
 
+    logger.info(f"[{req_id}] 开始生成 SSE 响应流")
+
     last_reason_pos = 0
     last_body_pos = 0
     chat_completion_id = f"{CHAT_COMPLETION_ID_PREFIX}{req_id}-{int(time.time())}-{random.randint(100, 999)}"
@@ -37,6 +44,8 @@ async def gen_sse_from_aux_stream(
     full_reasoning_content = ""
     full_body_content = ""
     data_receiving = False
+
+    loop_count = 0
 
     try:
         async for raw_data in use_stream_response(req_id, timeout=timeout, page=page, check_client_disconnected=check_client_disconnected):
@@ -47,6 +56,8 @@ async def gen_sse_from_aux_stream(
                 if not event_to_set.is_set():
                     event_to_set.set()
                 break
+            loop_count += 1
+            # logger.debug(f"[{req_id}] gen_sse_from_aux_stream loop iteration #{loop_count}")
 
             data_receiving = True
 
@@ -91,16 +102,18 @@ async def gen_sse_from_aux_stream(
                     "object": "chat.completion.chunk",
                     "model": model_name_for_stream,
                     "created": created_timestamp,
-                    "choices": [{
-                        "index": 0,
-                        "delta": {
-                            "role": "assistant",
-                            "content": None,
-                            "reasoning_content": reason[last_reason_pos:],
-                        },
-                        "finish_reason": None,
-                        "native_finish_reason": None,
-                    }],
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {
+                                "role": "assistant",
+                                "content": None,
+                                "reasoning_content": reason[last_reason_pos:],
+                            },
+                            "finish_reason": None,
+                            "native_finish_reason": None,
+                        }
+                    ],
                 }
                 last_reason_pos = len(reason)
                 yield f"data: {json.dumps(output, ensure_ascii=False, separators=(',', ':'))}\n\n"
@@ -121,15 +134,19 @@ async def gen_sse_from_aux_stream(
                 if done and function and len(function) > 0:
                     tool_calls_list = []
                     for func_idx, function_call_data in enumerate(function):
-                        tool_calls_list.append({
-                            "id": f"call_{random_id()}",
-                            "index": func_idx,
-                            "type": "function",
-                            "function": {
-                                "name": function_call_data["name"],
-                                "arguments": json.dumps(function_call_data["params"]),
-                            },
-                        })
+                        tool_calls_list.append(
+                            {
+                                "id": f"call_{random_id()}",
+                                "index": func_idx,
+                                "type": "function",
+                                "function": {
+                                    "name": function_call_data["name"],
+                                    "arguments": json.dumps(
+                                        function_call_data["params"]
+                                    ),
+                                },
+                            }
+                        )
                     delta_content["tool_calls"] = tool_calls_list
                     choice_item["finish_reason"] = "tool_calls"
                     choice_item["native_finish_reason"] = "tool_calls"
@@ -148,16 +165,24 @@ async def gen_sse_from_aux_stream(
                 if function and len(function) > 0:
                     tool_calls_list = []
                     for func_idx, function_call_data in enumerate(function):
-                        tool_calls_list.append({
-                            "id": f"call_{random_id()}",
-                            "index": func_idx,
-                            "type": "function",
-                            "function": {
-                                "name": function_call_data["name"],
-                                "arguments": json.dumps(function_call_data["params"]),
-                            },
-                        })
-                    delta_content = {"role": "assistant", "content": None, "tool_calls": tool_calls_list}
+                        tool_calls_list.append(
+                            {
+                                "id": f"call_{random_id()}",
+                                "index": func_idx,
+                                "type": "function",
+                                "function": {
+                                    "name": function_call_data["name"],
+                                    "arguments": json.dumps(
+                                        function_call_data["params"]
+                                    ),
+                                },
+                            }
+                        )
+                    delta_content = {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": tool_calls_list,
+                    }
                     choice_item = {
                         "index": 0,
                         "delta": delta_content,
@@ -194,17 +219,23 @@ async def gen_sse_from_aux_stream(
                 "object": "chat.completion.chunk",
                 "model": model_name_for_stream,
                 "created": created_timestamp,
-                "choices": [{
-                    "index": 0,
-                    "delta": {"role": "assistant", "content": f"\n\n[错误: {str(e)}]"},
-                    "finish_reason": "stop",
-                    "native_finish_reason": "stop",
-                }],
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "role": "assistant",
+                            "content": f"\n\n[错误: {str(e)}]",
+                        },
+                        "finish_reason": "stop",
+                        "native_finish_reason": "stop",
+                    }
+                ],
             }
             yield f"data: {json.dumps(error_chunk, ensure_ascii=False, separators=(',', ':'))}\n\n"
         except Exception:
             pass
     finally:
+        logger.info(f"[{req_id}] SSE 响应流生成结束")
         try:
             usage_stats = calculate_usage_stats(
                 [msg.model_dump() for msg in request.messages],
@@ -217,12 +248,14 @@ async def gen_sse_from_aux_stream(
                 "object": "chat.completion.chunk",
                 "model": model_name_for_stream,
                 "created": created_timestamp,
-                "choices": [{
-                    "index": 0,
-                    "delta": {},
-                    "finish_reason": "stop",
-                    "native_finish_reason": "stop",
-                }],
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {},
+                        "finish_reason": "stop",
+                        "native_finish_reason": "stop",
+                    }
+                ],
                 "usage": usage_stats,
             }
             yield f"data: {json.dumps(final_chunk, ensure_ascii=False, separators=(',', ':'))}\n\n"
@@ -259,39 +292,49 @@ async def gen_sse_from_playwright(
         page_controller = PageController(page, logger, req_id)
         final_content = await page_controller.get_response(check_client_disconnected, prompt_length=prompt_length, timeout=timeout)
         data_receiving = True
-        lines = final_content.split('\n')
+        lines = final_content.split("\n")
         for line_idx, line in enumerate(lines):
             try:
                 check_client_disconnected(f"Playwright流式生成器循环 ({req_id}): ")
             except ClientDisconnectedError:
                 logger.info(f"[{req_id}] Playwright流式生成器中检测到客户端断开连接")
                 if data_receiving and not completion_event.is_set():
-                    logger.info(f"[{req_id}] Playwright数据接收中客户端断开，立即设置done信号")
+                    logger.info(
+                        f"[{req_id}] Playwright数据接收中客户端断开，立即设置done信号"
+                    )
                     completion_event.set()
                 break
             if line:
                 chunk_size = 5
                 for i in range(0, len(line), chunk_size):
-                    chunk = line[i:i+chunk_size]
+                    chunk = line[i : i + chunk_size]
                     yield generate_sse_chunk(chunk, req_id, model_name_for_stream)
                     await asyncio.sleep(0.03)
             if line_idx < len(lines) - 1:
-                yield generate_sse_chunk('\n', req_id, model_name_for_stream)
+                yield generate_sse_chunk("\n", req_id, model_name_for_stream)
                 await asyncio.sleep(0.01)
         usage_stats = calculate_usage_stats(
-            [msg.model_dump() for msg in request.messages], final_content, "",
+            [msg.model_dump() for msg in request.messages],
+            final_content,
+            "",
         )
         logger.info(f"[{req_id}] Playwright非流式计算的token使用统计: {usage_stats}")
-        yield generate_sse_stop_chunk(req_id, model_name_for_stream, "stop", usage_stats)
+        yield generate_sse_stop_chunk(
+            req_id, model_name_for_stream, "stop", usage_stats
+        )
     except ClientDisconnectedError:
         logger.info(f"[{req_id}] Playwright流式生成器中检测到客户端断开连接")
         if data_receiving and not completion_event.is_set():
             logger.info(f"[{req_id}] Playwright客户端断开异常处理中立即设置done信号")
             completion_event.set()
     except Exception as e:
-        logger.error(f"[{req_id}] Playwright流式生成器处理过程中发生错误: {e}", exc_info=True)
+        logger.error(
+            f"[{req_id}] Playwright流式生成器处理过程中发生错误: {e}", exc_info=True
+        )
         try:
-            yield generate_sse_chunk(f"\n\n[错误: {str(e)}]", req_id, model_name_for_stream)
+            yield generate_sse_chunk(
+                f"\n\n[错误: {str(e)}]", req_id, model_name_for_stream
+            )
             yield generate_sse_stop_chunk(req_id, model_name_for_stream)
         except Exception:
             pass
