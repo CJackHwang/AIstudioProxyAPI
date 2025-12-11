@@ -4,18 +4,32 @@ CSS选择器配置模块
 """
 
 # --- 输入相关选择器 ---
-PROMPT_TEXTAREA_SELECTOR = "ms-prompt-input-wrapper ms-autosize-textarea textarea"
+# 主输入 textarea 同时兼容 aria-label 及普通 textarea，防止结构再调整
+PROMPT_TEXTAREA_SELECTOR = (
+    "ms-prompt-box ms-autosize-textarea textarea, "
+    'ms-prompt-box textarea[aria-label="Enter a prompt"], '
+    "ms-prompt-box textarea"
+)
 INPUT_SELECTOR = PROMPT_TEXTAREA_SELECTOR
 INPUT_SELECTOR2 = PROMPT_TEXTAREA_SELECTOR
 
 # --- 按钮选择器 ---
-# 发送按钮：优先匹配 aria-label="Run" 的按钮；如页面结构变更，可退化到容器内的提交按钮。
-SUBMIT_BUTTON_SELECTOR = 'button[aria-label="Run"].run-button, ms-run-button button[type="submit"].run-button'
+# 发送按钮：优先匹配 prompt 区域内 aria-label="Run" 的提交按钮
+SUBMIT_BUTTON_SELECTOR = (
+    'ms-prompt-box ms-run-button button[aria-label="Run"], '
+    'ms-prompt-box button[aria-label="Run"][type="submit"], '
+    'button[aria-label="Run"].run-button, '
+    'ms-run-button button[type="submit"].run-button'
+)
 CLEAR_CHAT_BUTTON_SELECTOR = 'button[data-test-clear="outside"][aria-label="New chat"], button[aria-label="New chat"]'
 CLEAR_CHAT_CONFIRM_BUTTON_SELECTOR = (
     'button.ms-button-primary:has-text("Discard and continue")'
 )
-UPLOAD_BUTTON_SELECTOR = 'button[aria-label^="Insert assets"]'
+UPLOAD_BUTTON_SELECTOR = (
+    'button[data-test-id="add-media-button"], '
+    'button[aria-label^="Insert assets"], '
+    'button[aria-label^="Insert images"]'
+)
 
 # --- 响应相关选择器 ---
 RESPONSE_CONTAINER_SELECTOR = "ms-chat-turn .chat-turn-container.model"
@@ -32,7 +46,10 @@ ERROR_TOAST_SELECTOR = "div.toast.warning, div.toast.error"
 EDIT_MESSAGE_BUTTON_SELECTOR = (
     "ms-chat-turn:last-child .actions-container button.toggle-edit-button"
 )
-MESSAGE_TEXTAREA_SELECTOR = "ms-chat-turn:last-child ms-text-chunk ms-autosize-textarea"
+MESSAGE_TEXTAREA_SELECTOR = (
+    "ms-chat-turn:last-child textarea, "
+    "ms-chat-turn:last-child ms-text-chunk textarea"
+)
 FINISH_EDIT_BUTTON_SELECTOR = 'ms-chat-turn:last-child .actions-container button.toggle-edit-button[aria-label="Stop editing"]'
 
 # --- 菜单和复制相关选择器 ---

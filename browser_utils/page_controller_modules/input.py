@@ -11,6 +11,7 @@ from config import (
     PROMPT_TEXTAREA_SELECTOR,
     RESPONSE_CONTAINER_SELECTOR,
     SUBMIT_BUTTON_SELECTOR,
+    UPLOAD_BUTTON_SELECTOR,
 )
 from logging_utils import set_request_id
 from models import ClientDisconnectedError
@@ -28,8 +29,9 @@ class InputController(BaseController):
         set_request_id(self.req_id)
         self.logger.info(f"填充并提交提示 ({len(prompt)} chars)...")
         prompt_textarea_locator = self.page.locator(PROMPT_TEXTAREA_SELECTOR)
-        autosize_wrapper_locator = self.page.locator(
-            "ms-prompt-input-wrapper ms-autosize-textarea"
+        autosize_wrapper_locator = self.page.locator("ms-prompt-box .text-wrapper")
+        legacy_autosize_wrapper = self.page.locator(
+            "ms-prompt-box ms-autosize-textarea"
         )
         submit_button_locator = self.page.locator(SUBMIT_BUTTON_SELECTOR)
 
@@ -50,10 +52,19 @@ class InputController(BaseController):
                 """,
                 prompt,
             )
-            await autosize_wrapper_locator.evaluate(
-                '(element, text) => { element.setAttribute("data-value", text); }',
-                prompt,
-            )
+            autosize_target = autosize_wrapper_locator
+            if await autosize_target.count() == 0:
+                autosize_target = legacy_autosize_wrapper
+            if await autosize_target.count() > 0:
+                try:
+                    await autosize_target.first.evaluate(
+                        '(element, text) => { element.setAttribute("data-value", text); }',
+                        prompt,
+                    )
+                except Exception as autosize_err:
+                    self.logger.debug(
+                        f" autosize wrapper update skipped: {autosize_err}"
+                    )
             await self._check_disconnect(check_client_disconnected, "After Input Fill")
 
             # 上传（仅使用菜单 + 隐藏 input 设置文件；处理可能的授权弹窗）
@@ -162,9 +173,8 @@ class InputController(BaseController):
             except Exception:
                 pass
 
-            trigger = self.page.locator(
-                'button[aria-label="Insert assets such as images, videos, files, or audio"]'
-            )
+            trigger = self.page.locator(UPLOAD_BUTTON_SELECTOR).first
+            await expect_async(trigger).to_be_visible(timeout=3000)
             await trigger.click()
             menu_container = self.page.locator("div.cdk-overlay-container")
             # 等待菜单显示
@@ -373,9 +383,9 @@ class InputController(BaseController):
 
         candidates = [
             target_locator,
-            self.page.locator("ms-prompt-input-wrapper ms-autosize-textarea textarea"),
-            self.page.locator("ms-prompt-input-wrapper ms-autosize-textarea"),
-            self.page.locator("ms-prompt-input-wrapper"),
+            self.page.locator(PROMPT_TEXTAREA_SELECTOR),
+            self.page.locator("ms-prompt-box .text-wrapper"),
+            self.page.locator("ms-prompt-box"),
         ]
 
         last_err = None

@@ -22,7 +22,9 @@ echo -e "${YELLOW}--> 步骤 2/4: 停止并移除旧的容器...${NC}"
 docker compose down
 
 echo -e "${YELLOW}--> 步骤 3/4: 使用 Docker Compose 构建并启动新容器...${NC}"
-docker compose up -d --build
+# docker compose up -d --build
+# # -p 参数指定项目名称，例如叫 "ai-studio-proxy"
+docker compose -p ai-studio-proxy up -d --build
 
 echo -e "${YELLOW}--> 步骤 4/4: 显示当前运行的容器状态...${NC}"
 docker compose ps

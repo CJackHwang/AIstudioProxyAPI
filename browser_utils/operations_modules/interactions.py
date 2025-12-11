@@ -83,7 +83,7 @@ async def get_response_via_edit_button(
     edit_button = last_message_container.get_by_label("Edit")
     finish_edit_button = last_message_container.get_by_label("Stop editing")
     autosize_textarea_locator = last_message_container.locator("ms-autosize-textarea")
-    actual_textarea_locator = autosize_textarea_locator.locator("textarea")
+    actual_textarea_locator = last_message_container.locator("textarea")
 
     try:
         logger.info("   - 尝试悬停最后一条消息以显示 'Edit' 按钮...")
@@ -128,30 +128,38 @@ async def get_response_via_edit_button(
         textarea_failed = False
 
         try:
-            await expect_async(autosize_textarea_locator).to_be_visible(
+            target_locator = autosize_textarea_locator
+            if await target_locator.count() == 0:
+                target_locator = actual_textarea_locator
+
+            if await target_locator.count() == 0:
+                raise RuntimeError("未找到可编辑的文本区域")
+
+            await expect_async(target_locator).to_be_visible(
                 timeout=CLICK_TIMEOUT_MS
             )
-            check_client_disconnected("编辑响应 - autosize-textarea 可见后: ")
+            check_client_disconnected("编辑响应 - 文本区域可见后: ")
 
-            try:
-                data_value_content = await autosize_textarea_locator.get_attribute(
-                    "data-value"
-                )
-                check_client_disconnected("编辑响应 - get_attribute data-value 后: ")
-                if data_value_content is not None:
-                    response_content = str(data_value_content)
-                    logger.info("   - 从 data-value 获取内容成功。")
-            except asyncio.CancelledError:
-                raise
-            except Exception as data_val_err:
-                logger.warning(f"   - 获取 data-value 失败: {data_val_err}")
-                check_client_disconnected(
-                    "编辑响应 - get_attribute data-value 错误后: "
-                )
+            if await autosize_textarea_locator.count() > 0 and response_content is None:
+                try:
+                    data_value_content = await autosize_textarea_locator.get_attribute(
+                        "data-value"
+                    )
+                    check_client_disconnected("编辑响应 - get_attribute data-value 后: ")
+                    if data_value_content is not None:
+                        response_content = str(data_value_content)
+                        logger.info("   - 从 data-value 获取内容成功。")
+                except asyncio.CancelledError:
+                    raise
+                except Exception as data_val_err:
+                    logger.warning(f"   - 获取 data-value 失败: {data_val_err}")
+                    check_client_disconnected(
+                        "编辑响应 - get_attribute data-value 错误后: "
+                    )
 
-            if response_content is None:
+            if response_content is None and await actual_textarea_locator.count() > 0:
                 logger.info(
-                    "   - data-value 获取失败或为None，尝试从内部 textarea 获取 input_value..."
+                    "   - data-value 获取失败或不存在，尝试从 textarea 获取 input_value..."
                 )
                 try:
                     await expect_async(actual_textarea_locator).to_be_visible(

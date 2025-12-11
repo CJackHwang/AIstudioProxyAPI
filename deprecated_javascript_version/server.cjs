@@ -60,7 +60,7 @@ const MODEL_NAME = 'google-ai-studio-via-playwright-cdp-json';
 const CHAT_COMPLETION_ID_PREFIX = 'chatcmpl-';
 
 // --- 选择器常量 ---
-const INPUT_SELECTOR = 'ms-prompt-input-wrapper textarea';
+const INPUT_SELECTOR = 'ms-prompt-box textarea';
 const SUBMIT_BUTTON_SELECTOR = 'button[aria-label="Run"]';
 const RESPONSE_CONTAINER_SELECTOR = 'ms-chat-turn .chat-turn-container.model'; // 选择器指向 AI 模型回复的容器
 const RESPONSE_TEXT_SELECTOR = 'ms-cmark-node.cmark-node';
@@ -224,7 +224,7 @@ async function initializePlaywright() {
 
         try {
             console.log("-> 尝试定位核心输入区域以确认页面就绪...");
-            await page.locator('ms-prompt-input-wrapper').waitFor({ state: 'visible', timeout: 15000 });
+            await page.locator('ms-prompt-box').waitFor({ state: 'visible', timeout: 15000 });
              console.log("-> 核心输入区域容器已找到。");
         } catch(initCheckError) {
             console.warn(`⚠️ 初始化检查警告：未能快速定位到核心输入区域容器。页面可能仍在加载或结构有变: ${initCheckError.message.split('\\n')[0]}`);

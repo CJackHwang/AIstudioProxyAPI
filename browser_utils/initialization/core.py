@@ -293,7 +293,11 @@ async def initialize_page_logic(
         await found_page.bring_to_front()
 
         try:
-            input_wrapper_locator = found_page.locator("ms-prompt-input-wrapper")
+            input_wrapper_locator = found_page.locator(
+                "ms-prompt-box .prompt-box-container"
+            )
+            if await input_wrapper_locator.count() == 0:
+                input_wrapper_locator = found_page.locator("ms-prompt-box")
             await expect_async(input_wrapper_locator).to_be_visible(timeout=35000)
             await expect_async(found_page.locator(INPUT_SELECTOR)).to_be_visible(
                 timeout=10000
