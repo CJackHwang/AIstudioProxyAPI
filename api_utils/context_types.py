@@ -36,6 +36,7 @@ class RequestContext(TypedDict):
     # Core components (always set by context_init.py)
     req_id: str
     logger: logging.Logger
+    session: Any  # Session object
     page: Optional[AsyncPage]  # Value can be None if browser not ready
     is_page_ready: bool
     parsed_model_list: List[Dict[str, Any]]

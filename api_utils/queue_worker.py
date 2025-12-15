@@ -37,12 +37,6 @@ class QueueManager:
         self.model_switching_lock: Optional[Lock] = None
         self.params_cache_lock: Optional[Lock] = None
 
-        # Context for cleanup
-        self.current_submit_btn_loc: Optional[Locator] = None
-        self.current_client_disco_checker: Optional[Callable[[str], bool]] = None
-        self.current_completion_event: Optional[Event] = None
-        self.current_req_id: Optional[str] = None
-
     def initialize_globals(self) -> None:
         """Initialize global variables from server state or create new ones."""
         from api_utils.server_state import state
@@ -226,20 +220,39 @@ class QueueManager:
                 self.request_queue.task_done()
             return
 
-        self.logger.info("(Worker) Waiting for processing lock...")
+        self.logger.info("(Worker) Acquiring session...")
 
-        if not self.processing_lock:
-            self.logger.error("Processing lock is None!")
+        from api_utils.server_state import state
+
+        if not state.session_manager:
+            self.logger.error("Session manager is None!")
             if not result_future.done():
                 result_future.set_exception(
-                    server_error(req_id, "Internal error: Processing lock missing")
+                    server_error(req_id, "Internal error: Session manager missing")
                 )
             if self.request_queue:
                 self.request_queue.task_done()
             return
 
-        async with self.processing_lock:
-            self.logger.info("(Worker) Acquired processing lock.")
+        session = state.session_manager.acquire_session()
+        if not session:
+            self.logger.error("No available sessions!")
+            if not result_future.done():
+                result_future.set_exception(
+                    server_error(req_id, "Internal error: No sessions available")
+                )
+            if self.request_queue:
+                self.request_queue.task_done()
+            return
+
+        self.logger.info(f"(Worker) Acquired session: {session.id}")
+
+        # Initialize cleanup variables
+        submit_btn_loc: Optional[Locator] = None
+        client_disco_checker: Optional[Callable[[str], bool]] = None
+
+        async with session.lock:
+            self.logger.info(f"(Worker) Acquired lock for session {session.id}.")
 
             # 5. Final Connection Check inside Lock
             if not await _check_client_connection(req_id, http_request):
@@ -274,8 +287,8 @@ class QueueManager:
                         self.logger.info(
                             f"(Worker) [Attempt {attempt}/{max_attempts}] Executing request logic..."
                         )
-                        await self._execute_request_logic(
-                            req_id, request_data, http_request, result_future
+                        submit_btn_loc, client_disco_checker = await self._execute_request_logic(
+                            req_id, request_data, http_request, result_future, session
                         )
                         # If successful (no exception raised), break the retry loop
                         break
@@ -310,9 +323,9 @@ class QueueManager:
 
                         if is_quota_error:
                             self.logger.warning(
-                                "(Worker) 检测到配额/限流错误，立即切换配置文件..."
+                                "(Worker) 检测到配额/限流错误，尝试重新初始化会话..."
                             )
-                            await self._switch_auth_profile(req_id)
+                            await self._reinit_session(req_id, session)
                             continue
 
                         # If it's the last attempt, re-raise to be handled by outer block
@@ -328,7 +341,7 @@ class QueueManager:
                                 "(Worker) Tier 1 Recovery: Page Refresh..."
                             )
                             try:
-                                await self._refresh_page(req_id)
+                                await self._refresh_page(req_id, session)
                             except asyncio.CancelledError:
                                 raise
                             except Exception as refresh_err:
@@ -337,32 +350,29 @@ class QueueManager:
                                 )
                             continue
 
-                        # Tier 2: Auth Profile Switch (跳过浏览器重启，直接切换配置文件)
+                        # Tier 2: Session Re-init
                         if attempt == 2:
                             self.logger.warning(
-                                "(Worker) Tier 2 Recovery: Switching Auth Profile..."
+                                "(Worker) Tier 2 Recovery: Re-initializing Session..."
                             )
                             try:
-                                await self._switch_auth_profile(req_id)
+                                await self._reinit_session(req_id, session)
                             except asyncio.CancelledError:
                                 raise
                             except Exception as switch_err:
                                 self.logger.error(
-                                    f"(Worker) Tier 2 Profile Switch failed: {switch_err}"
+                                    f"(Worker) Tier 2 Session Re-init failed: {switch_err}"
                                 )
-                                if "exhausted" in str(switch_err).lower():
-                                    self.logger.critical(
-                                        "(Worker) Auth profiles exhausted."
-                                    )
-                                    raise
                             continue
 
                 # --- End Fast-Fail Tiered Error Recovery Logic ---
 
             # 6. Cleanup / Post-processing (Clear Stream Queue & Chat History)
-            await self._cleanup_after_processing(req_id)
+            await self._cleanup_after_processing(
+                req_id, session, submit_btn_loc, client_disco_checker
+            )
 
-            self.logger.info("(Worker) Released processing lock.")
+            self.logger.info(f"(Worker) Released lock for session {session.id}.")
 
         # Update state for next iteration
         self.was_last_request_streaming = is_streaming_request
@@ -376,7 +386,8 @@ class QueueManager:
         request_data: ChatCompletionRequest,
         http_request: Request,
         result_future: Future[Union[StreamingResponse, JSONResponse]],
-    ) -> None:
+        session: Any,
+    ) -> Tuple[Optional[Locator], Optional[Callable[[str], bool]]]:
         """Execute the actual request processing logic."""
         # 确保日志上下文已设置
         set_request_id(req_id)
@@ -386,16 +397,10 @@ class QueueManager:
                 _process_request_refactored,  # pyright: ignore[reportPrivateUsage]
             )
 
-            # Store these for cleanup usage if needed
-            self.current_submit_btn_loc = None
-            self.current_client_disco_checker = None
-            self.current_completion_event = None
-            self.current_req_id = req_id
-
             returned_value: Optional[
                 Tuple[Optional[Event], Locator, Callable[[str], bool]]
             ] = await _process_request_refactored(
-                req_id, request_data, http_request, result_future
+                req_id, request_data, http_request, result_future, session
             )
 
             # Initialize variables that will be set from tuple unpacking
@@ -418,11 +423,6 @@ class QueueManager:
             else:
                 self.logger.info("(Worker) Non-stream completion (None).")
 
-            # Store for cleanup
-            self.current_submit_btn_loc = submit_btn_loc
-            self.current_client_disco_checker = client_disco_checker
-            self.current_completion_event = completion_event
-
             # Initialize stream_state for monitoring
             stream_state: Optional[Dict[str, Any]] = None
 
@@ -435,7 +435,10 @@ class QueueManager:
                 client_disco_checker,
                 current_request_was_streaming,
                 stream_state,
+                session,
             )
+
+            return submit_btn_loc, client_disco_checker
 
         except asyncio.CancelledError:
             self.logger.info("(Worker) Execution cancelled.")
@@ -459,6 +462,7 @@ class QueueManager:
         client_disco_checker: Optional[Callable[[str], bool]],
         current_request_was_streaming: bool,
         stream_state: Optional[Dict[str, Any]] = None,
+        session: Any = None,
     ) -> None:
         """Monitor for completion and handle disconnects.
 
@@ -545,7 +549,11 @@ class QueueManager:
                 and completion_event
             ):
                 await self._handle_post_stream_button(
-                    req_id, submit_btn_loc, client_disco_checker, completion_event
+                    req_id,
+                    submit_btn_loc,
+                    client_disco_checker,
+                    completion_event,
+                    session,
                 )
 
         except asyncio.TimeoutError:
@@ -581,6 +589,7 @@ class QueueManager:
         submit_btn_loc: Locator,
         client_disco_checker: Callable[[str], bool],
         completion_event: Event,
+        session: Any,
     ) -> None:
         """Handle the submit button state after streaming."""
         # 确保日志上下文已设置
@@ -589,14 +598,13 @@ class QueueManager:
         self.logger.info("(Worker) Handling post-stream button state...")
         try:
             from browser_utils.page_controller import PageController
-            from server import page_instance
 
-            if page_instance:
-                page_controller = PageController(page_instance, self.logger, req_id)
+            if session and session.page:
+                page_controller = PageController(session.page, self.logger, req_id)
                 await page_controller.ensure_generation_stopped(client_disco_checker)
             else:
                 self.logger.warning(
-                    "(Worker) page_instance is None during button handling"
+                    "(Worker) session.page is None during button handling"
                 )
 
         except asyncio.CancelledError:
@@ -635,7 +643,13 @@ class QueueManager:
                     error_exception=e_ensure_stop,
                 )
 
-    async def _cleanup_after_processing(self, req_id: str):
+    async def _cleanup_after_processing(
+        self,
+        req_id: str,
+        session: Any,
+        submit_btn_loc: Optional[Locator],
+        client_disco_checker: Optional[Callable[[str], bool]],
+    ):
         """Clean up stream queue and chat history."""
         # 确保日志上下文已设置
         set_request_id(req_id)
@@ -646,24 +660,19 @@ class QueueManager:
             await clear_stream_queue()
 
             # Clear chat history if we have the necessary context
-            if getattr(self, "current_submit_btn_loc", None) and getattr(
-                self, "current_client_disco_checker", None
-            ):
-                from server import is_page_ready, page_instance
-
+            if submit_btn_loc and client_disco_checker:
                 if (
-                    page_instance
-                    and is_page_ready
-                    and self.current_client_disco_checker
+                    session
+                    and session.page
+                    and session.is_ready
+                    and client_disco_checker
                 ):
                     from browser_utils.page_controller import PageController
 
-                    page_controller = PageController(page_instance, self.logger, req_id)
+                    page_controller = PageController(session.page, self.logger, req_id)
 
                     self.logger.info("(Worker) Clearing chat history...")
-                    await page_controller.clear_chat_history(
-                        self.current_client_disco_checker
-                    )
+                    await page_controller.clear_chat_history(client_disco_checker)
                     self.logger.info("(Worker) Chat history cleared.")
         except asyncio.CancelledError:
             self.logger.info("(Worker) Cleanup cancelled.")
@@ -671,17 +680,15 @@ class QueueManager:
         except Exception as clear_err:
             self.logger.error(f"(Worker) Cleanup error: {clear_err}", exc_info=True)
 
-    async def _refresh_page(self, req_id: str) -> None:
+    async def _refresh_page(self, req_id: str, session: Any) -> None:
         """Tier 1 Recovery: 快速页面刷新 (~2-3秒)。"""
         # 确保日志上下文已设置
         set_request_id(req_id)
 
-        from api_utils.server_state import state
+        if not session or not session.page:
+            raise RuntimeError("session.page is missing")
 
-        if state.page_instance is None:
-            raise RuntimeError("page_instance is missing")
-
-        page = state.page_instance
+        page = session.page
         self.logger.info("(Recovery) 执行页面刷新...")
 
         try:
@@ -701,71 +708,22 @@ class QueueManager:
             self.logger.error(f"(Recovery) 页面刷新失败: {e}")
             raise
 
-    async def _switch_auth_profile(self, req_id: str) -> None:
-        """Tier 2 Recovery: 完全重新初始化浏览器连接以避免状态保留。"""
-        # 确保日志上下文已设置
+    async def _reinit_session(self, req_id: str, session: Any) -> None:
+        """Tier 2 Recovery: Re-initialize the current session."""
         set_request_id(req_id)
+        self.logger.info(f"(Recovery) Re-initializing session {session.id}...")
 
-        from api_utils.auth_manager import auth_manager
-        from browser_utils.initialization.core import (
-            close_page_logic,
-            enable_temporary_chat_mode,
-            initialize_page_logic,
-        )
-        from browser_utils.model_management import (
-            _handle_initial_model_state_and_storage,  # pyright: ignore[reportPrivateUsage]
-        )
-        from config import get_environment_variable
-
-        # 标记当前配置文件为失败
-        auth_manager.mark_profile_failed()
-
-        # 获取下一个配置文件
-        next_profile = await auth_manager.get_next_profile()
-        self.logger.info(f"(Recovery) 切换到配置文件: {next_profile}")
-
-        # 1. 关闭现有页面
-        await close_page_logic()
-
-        # 2. 关闭浏览器连接以获取全新状态
         from api_utils.server_state import state
 
-        if state.browser_instance and state.browser_instance.is_connected():
-            await state.browser_instance.close()
-            state.is_browser_connected = False
-            self.logger.info("(Recovery) 浏览器连接已关闭")
+        # Close existing context
+        await session.close()
 
-        # 3. 重新连接到 Camoufox
-        ws_endpoint = get_environment_variable("CAMOUFOX_WS_ENDPOINT")
-        if not ws_endpoint:
-            raise RuntimeError("CAMOUFOX_WS_ENDPOINT not available for reconnection")
-
-        if not state.playwright_manager:
-            raise RuntimeError("Playwright manager not available")
-
-        self.logger.info("(Recovery) 重新连接到浏览器...")
-        state.browser_instance = await state.playwright_manager.firefox.connect(
-            ws_endpoint, timeout=30000
-        )
-        state.is_browser_connected = True
-        self.logger.info(f"(Recovery) 已连接: {state.browser_instance.version}")
-
-        # 4. 使用新配置文件初始化页面
-        state.page_instance, state.is_page_ready = await initialize_page_logic(
-            state.browser_instance,
-            storage_state_path=next_profile,
-        )
-
-        # 5. 处理初始模型状态和存储
-        if state.is_page_ready and state.page_instance:
-            await _handle_initial_model_state_and_storage(state.page_instance)
-
-            # 6. 启用临时聊天模式
-            await enable_temporary_chat_mode(state.page_instance)
-
-            self.logger.info("(Recovery) 配置文件切换完成 (浏览器已完全重新初始化)")
+        # Re-initialize
+        success = await session.initialize(state.browser_instance)
+        if success:
+            self.logger.info(f"(Recovery) Session {session.id} re-initialized.")
         else:
-            raise RuntimeError("(Recovery) 页面初始化失败，无法完成配置文件切换")
+            raise RuntimeError(f"Failed to re-initialize session {session.id}")
 
 
 async def queue_worker() -> None:
@@ -782,7 +740,20 @@ async def queue_worker() -> None:
 
             request_item = await manager.get_next_request()
             if request_item:
-                await manager.process_request(request_item)
+                # Spawn a background task for processing
+                task = asyncio.create_task(manager.process_request(request_item))
+
+                def _handle_task_result(t: Task):
+                    try:
+                        t.result()
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception as e:
+                        logger.error(
+                            f"Background process_request task failed: {e}", exc_info=True
+                        )
+
+                task.add_done_callback(_handle_task_result)
 
         except asyncio.CancelledError:
             logger.info("--- Queue Worker Cancelled ---")

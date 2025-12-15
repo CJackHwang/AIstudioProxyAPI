@@ -270,3 +270,4 @@ pyright_utils_full.txt
 temp_*.txt
 temp_*.md
 utils_errors.txt
+auth_profiles/*.json

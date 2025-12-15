@@ -23,14 +23,16 @@ from api_utils.server_state import state
 # --- browser_utils模块导入 ---
 from browser_utils import (
     _close_page_logic,  # pyright: ignore[reportPrivateUsage]
-    _handle_initial_model_state_and_storage,  # pyright: ignore[reportPrivateUsage]
-    _initialize_page_logic,  # pyright: ignore[reportPrivateUsage]
-    enable_temporary_chat_mode,
     load_excluded_models,
 )
 
 # --- FIX: Replaced star import with explicit imports ---
-from config import EXCLUDED_MODELS_FILENAME, NO_PROXY_ENV, get_environment_variable
+from config import (
+    ACTIVE_AUTH_DIR,
+    EXCLUDED_MODELS_FILENAME,
+    NO_PROXY_ENV,
+    get_environment_variable,
+)
 
 # --- logging_utils模块导入 ---
 from logging_utils import restore_original_streams, setup_server_logging
@@ -148,15 +150,25 @@ async def _initialize_browser_and_page() -> None:
         state.is_browser_connected = True
         state.logger.info(f"Connected to browser: {state.browser_instance.version}")
 
-        state.page_instance, state.is_page_ready = await _initialize_page_logic(
-            state.browser_instance
+        # Initialize SessionManager
+        from api_utils.session_manager import SessionManager
+
+        state.session_manager = SessionManager()
+        await state.session_manager.initialize_all(
+            state.browser_instance, ACTIVE_AUTH_DIR
         )
-        if state.is_page_ready:
-            await _handle_initial_model_state_and_storage(state.page_instance)
-            await enable_temporary_chat_mode(state.page_instance)
-            state.logger.info("Page initialized successfully.")
+
+        if state.session_manager.sessions:
+            # Backward compatibility: point to the first session
+            first_session = state.session_manager.sessions[0]
+            state.page_instance = first_session.page
+            state.is_page_ready = first_session.is_ready
+            state.logger.info(
+                f"Session Manager initialized with {len(state.session_manager.sessions)} sessions."
+            )
         else:
-            state.logger.error("Page initialization failed.")
+            state.logger.warning("No sessions initialized.")
+            state.is_page_ready = False
 
     if not state.model_list_fetch_event.is_set():
         state.model_list_fetch_event.set()
@@ -197,6 +209,10 @@ async def _shutdown_resources() -> None:
             logger.warning("Worker task did not respond to cancellation within 2s.")
         except asyncio.CancelledError:
             logger.info("Worker task cancelled.")
+
+    if state.session_manager:
+        for session in state.session_manager.sessions:
+            await session.close()
 
     if state.page_instance:
         await _close_page_logic()

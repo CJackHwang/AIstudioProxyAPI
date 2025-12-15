@@ -615,6 +615,7 @@ async def _process_request_refactored(  # pyright: ignore[reportUnusedFunction] 
     request: ChatCompletionRequest,
     http_request: Request,
     result_future: Future[Union[StreamingResponse, JSONResponse]],
+    session: Any,
 ) -> Optional[Tuple[Optional[Event], Locator, CheckClientDisconnected]]:
     """Core request processing function - Refactored"""
     # 设置日志上下文 (Grid Logger)
@@ -655,7 +656,7 @@ async def _process_request_refactored(  # pyright: ignore[reportUnusedFunction] 
         except Exception as clear_err:
             logger.warning(f"Error clearing stream queue: {clear_err}")
 
-    context = await _initialize_request_context(req_id, request)
+    context = await _initialize_request_context(req_id, request, session)
     context = await _analyze_model_requirements(req_id, context, request)
 
     (

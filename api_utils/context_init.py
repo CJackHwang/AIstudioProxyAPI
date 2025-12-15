@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Any, cast
 
 from logging_utils import set_request_id
 from models import ChatCompletionRequest
@@ -7,7 +7,7 @@ from .context_types import RequestContext
 
 
 async def initialize_request_context(
-    req_id: str, request: ChatCompletionRequest
+    req_id: str, request: ChatCompletionRequest, session: Any
 ) -> RequestContext:
     from api_utils.server_state import state
 
@@ -19,8 +19,9 @@ async def initialize_request_context(
         RequestContext,
         {
             "logger": state.logger,
-            "page": state.page_instance,
-            "is_page_ready": state.is_page_ready,
+            "session": session,
+            "page": session.page if session else None,
+            "is_page_ready": session.is_ready if session else False,
             "parsed_model_list": state.parsed_model_list,
             "current_ai_studio_model_id": state.current_ai_studio_model_id,
             "model_switching_lock": state.model_switching_lock,

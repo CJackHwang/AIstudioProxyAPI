@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     )
 
     from api_utils.context_types import QueueItem
+    from api_utils.session_manager import SessionManager
     from models.logging import WebSocketConnectionManager
 
 
@@ -54,7 +55,8 @@ class ServerState:
         # --- Playwright/Browser State ---
         self.playwright_manager: Optional["AsyncPlaywright"] = None
         self.browser_instance: Optional["AsyncBrowser"] = None
-        self.page_instance: Optional["AsyncPage"] = None
+        self.page_instance: Optional["AsyncPage"] = None  # Deprecated: Use session_manager
+        self.session_manager: Optional["SessionManager"] = None
         self.is_playwright_ready: bool = False
         self.is_browser_connected: bool = False
         self.is_page_ready: bool = False

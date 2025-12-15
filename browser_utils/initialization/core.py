@@ -40,13 +40,13 @@ logger = logging.getLogger("AIStudioProxyServer")
 
 async def initialize_page_logic(  # pragma: no cover
     browser: AsyncBrowser, storage_state_path: Optional[str] = None
-) -> Tuple[AsyncPage, bool]:
+) -> Tuple[AsyncBrowserContext, AsyncPage]:
     """
     初始化页面逻辑，连接到现有浏览器
 
     Args:
         browser: Playwright 浏览器实例
-        storage_state_path: 可选的认证文件路径。如果提供，将优先使用此路径。
+        storage_state_path: 认证文件路径。
     """
     logger.info("--- 初始化页面逻辑 (连接到现有浏览器) ---")
     temp_context: Optional[AsyncBrowserContext] = None
@@ -55,6 +55,11 @@ async def initialize_page_logic(  # pragma: no cover
     logger.info(f"   检测到启动模式: {launch_mode}")
     loop = asyncio.get_running_loop()
 
+    if launch_mode == "direct_debug_no_browser":
+        logger.info(
+            "   direct_debug_no_browser 模式：不加载 storage_state，不进行浏览器操作。"
+        )
+
     # 优先使用传入的 storage_state_path
     if storage_state_path:
         if os.path.exists(storage_state_path):
@@ -62,55 +67,9 @@ async def initialize_page_logic(  # pragma: no cover
             logger.info(f"   使用指定的认证文件: {storage_state_path_to_use}")
         else:
             logger.error(f"指定的认证文件不存在: {storage_state_path}")
-            # 如果是明确指定的路径但不存在，这应该是一个错误
             raise RuntimeError(f"指定的认证文件不存在: {storage_state_path}")
     else:
-        # 回退到原有的环境变量逻辑
-        if launch_mode == "headless" or launch_mode == "virtual_headless":
-            auth_filename = os.environ.get("ACTIVE_AUTH_JSON_PATH")
-            if auth_filename:
-                constructed_path = auth_filename
-                if os.path.exists(constructed_path):
-                    storage_state_path_to_use = constructed_path
-                    logger.info(f"   无头模式将使用的认证文件: {constructed_path}")
-                else:
-                    logger.error(
-                        f"{launch_mode} 模式认证文件无效或不存在: '{constructed_path}'"
-                    )
-                    raise RuntimeError(
-                        f"{launch_mode} 模式认证文件无效: '{constructed_path}'"
-                    )
-            else:
-                logger.error(
-                    f"{launch_mode} 模式需要 ACTIVE_AUTH_JSON_PATH 环境变量，但未设置或为空。"
-                )
-                raise RuntimeError(f"{launch_mode} 模式需要 ACTIVE_AUTH_JSON_PATH。")
-        elif launch_mode == "debug":
-            logger.info(
-                "   调试模式: 尝试从环境变量 ACTIVE_AUTH_JSON_PATH 加载认证文件..."
-            )
-            auth_filepath_from_env = os.environ.get("ACTIVE_AUTH_JSON_PATH")
-            if auth_filepath_from_env and os.path.exists(auth_filepath_from_env):
-                storage_state_path_to_use = auth_filepath_from_env
-                logger.info(
-                    f"   调试模式将使用的认证文件 (来自环境变量): {storage_state_path_to_use}"
-                )
-            elif auth_filepath_from_env:
-                logger.warning(
-                    f"   调试模式下环境变量 ACTIVE_AUTH_JSON_PATH 指向的文件不存在: '{auth_filepath_from_env}'。不加载认证文件。"
-                )
-            else:
-                logger.info(
-                    "   调试模式下未通过环境变量提供认证文件。将使用浏览器当前状态。"
-                )
-        elif launch_mode == "direct_debug_no_browser":
-            logger.info(
-                "   direct_debug_no_browser 模式：不加载 storage_state，不进行浏览器操作。"
-            )
-        else:
-            logger.warning(
-                f"   警告: 未知的启动模式 '{launch_mode}'。不加载 storage_state。"
-            )
+        logger.info("   未指定认证文件，将不使用 storage_state (或使用浏览器默认状态)")
 
     try:
         logger.info("创建新的浏览器上下文...")
@@ -333,13 +292,12 @@ async def initialize_page_logic(  # pragma: no cover
                 logger.error(f"获取模型名称时出错 (model_name_locator): {e}")
                 raise
 
-            result_page_instance = found_page
-            result_page_ready = True
-
             # 脚本注入已在上下文创建时完成，无需在此处重复注入
 
             logger.info("页面逻辑初始化成功。")
-            return result_page_instance, result_page_ready
+            if temp_context is None:
+                raise RuntimeError("Context was not created")
+            return temp_context, found_page
         except asyncio.CancelledError:
             raise
         except Exception as input_visible_err:
