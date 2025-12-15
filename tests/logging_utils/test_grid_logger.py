@@ -17,15 +17,11 @@ from logging_utils.grid_logger import (
     GridFormatter,
     PlainGridFormatter,
     SemanticHighlighter,
-    TreeBuilder,
-    is_last_in_context_var,
     log_context,
     normalize_source,
     request_context,
     request_id_var,
     source_var,
-    tree_depth_var,
-    tree_stack_var,
 )
 
 
@@ -104,48 +100,6 @@ class TestColors:
         """Level abbreviations should be 3 characters."""
         for abbrev in Colors.LEVEL_ABBREV.values():
             assert len(abbrev) == 3
-
-
-class TestTreeBuilder:
-    """Tests for TreeBuilder class."""
-
-    def test_get_prefix_at_depth_zero(self):
-        """At depth 0, prefix should be empty."""
-        # Reset context vars
-        tree_depth_var.set(0)
-        tree_stack_var.set([])
-
-        result = TreeBuilder.get_prefix()
-        assert result == ""
-
-    def test_get_prefix_at_depth_one(self):
-        """At depth 1, prefix should be a pipe."""
-        tree_depth_var.set(1)
-        tree_stack_var.set([True])
-
-        result = TreeBuilder.get_prefix()
-        # Should contain pipe character
-        assert "│" in result or TreeBuilder.PIPE in result
-
-    def test_get_prefix_at_depth_two(self):
-        """At depth 2, prefix should have branch character."""
-        tree_depth_var.set(2)
-        tree_stack_var.set([True])
-        is_last_in_context_var.set(False)
-
-        result = TreeBuilder.get_prefix()
-        # Should contain branch character
-        assert "├" in result or TreeBuilder.BRANCH in result
-
-    def test_get_prefix_last_item(self):
-        """Last item should use last branch character."""
-        tree_depth_var.set(2)
-        tree_stack_var.set([True])
-        is_last_in_context_var.set(True)
-
-        result = TreeBuilder.get_prefix()
-        # Should contain last branch character
-        assert "└" in result or TreeBuilder.LAST_BRANCH in result
 
 
 class TestSemanticHighlighter:
@@ -405,9 +359,7 @@ class TestGridFormatter:
 
     def test_format_basic_message(self):
         """Basic message should be formatted with all columns."""
-        formatter = GridFormatter(
-            show_tree=True, colorize=False, burst_suppression=False
-        )
+        formatter = GridFormatter(colorize=False, burst_suppression=False)
         record = logging.LogRecord(
             name="test",
             level=logging.INFO,
@@ -421,7 +373,6 @@ class TestGridFormatter:
         # Set context vars
         request_id_var.set("abc1234")
         source_var.set("api")
-        tree_depth_var.set(0)
 
         result = formatter.format(record)
 
@@ -433,9 +384,7 @@ class TestGridFormatter:
 
     def test_format_with_colors(self):
         """Colorized output should contain ANSI codes."""
-        formatter = GridFormatter(
-            show_tree=True, colorize=True, burst_suppression=False
-        )
+        formatter = GridFormatter(colorize=True, burst_suppression=False)
         record = logging.LogRecord(
             name="test",
             level=logging.WARNING,
@@ -448,7 +397,6 @@ class TestGridFormatter:
 
         request_id_var.set("xyz7890")
         source_var.set("server")
-        tree_depth_var.set(0)
 
         result = formatter.format(record)
 
@@ -457,9 +405,7 @@ class TestGridFormatter:
 
     def test_format_skips_separator_lines(self):
         """Separator lines (---) should be skipped."""
-        formatter = GridFormatter(
-            show_tree=True, colorize=False, burst_suppression=False
-        )
+        formatter = GridFormatter(colorize=False, burst_suppression=False)
         record = logging.LogRecord(
             name="test",
             level=logging.INFO,
@@ -470,15 +416,12 @@ class TestGridFormatter:
             exc_info=None,
         )
 
-        tree_depth_var.set(0)
         result = formatter.format(record)
         assert result == ""
 
     def test_format_with_burst_suppression(self):
         """Burst suppression should dedupe repeated messages."""
-        formatter = GridFormatter(
-            show_tree=True, colorize=False, burst_suppression=True
-        )
+        formatter = GridFormatter(colorize=False, burst_suppression=True)
 
         # Reset the global burst buffer state by processing a unique message first
         record1 = logging.LogRecord(
@@ -491,7 +434,6 @@ class TestGridFormatter:
             exc_info=None,
         )
         source_var.set("api")
-        tree_depth_var.set(0)
         formatter.format(record1)
 
         # Now test with repeating messages
@@ -527,7 +469,6 @@ class TestPlainGridFormatter:
 
         request_id_var.set("plain12")
         source_var.set("worker")
-        tree_depth_var.set(0)
 
         result = formatter.format(record)
 
@@ -555,29 +496,6 @@ class TestPlainGridFormatter:
 class TestLogContext:
     """Tests for log_context context manager."""
 
-    def test_log_context_increases_depth(self):
-        """Log context should increase tree depth."""
-        tree_depth_var.set(0)
-        logger = logging.getLogger("test_context")
-
-        with log_context("Test Context", logger, silent=True):
-            assert tree_depth_var.get() == 1
-
-        # After context, depth should be restored
-        assert tree_depth_var.get() == 0
-
-    def test_log_context_nested(self):
-        """Nested log contexts should increase depth incrementally."""
-        tree_depth_var.set(0)
-        logger = logging.getLogger("test_nested")
-
-        with log_context("Level 1", logger, silent=True):
-            assert tree_depth_var.get() == 1
-            with log_context("Level 2", logger, silent=True):
-                assert tree_depth_var.get() == 2
-            assert tree_depth_var.get() == 1
-        assert tree_depth_var.get() == 0
-
     def test_log_context_with_source(self):
         """Log context can change source temporarily."""
         source_var.set("original")
@@ -587,6 +505,26 @@ class TestLogContext:
             assert source_var.get() == "new_source"
 
         assert source_var.get() == "original"
+
+    def test_log_context_silent_no_log(self):
+        """Log context with silent=True should not log the header."""
+        import io
+
+        logger = logging.getLogger("test_silent")
+        logger.setLevel(logging.DEBUG)
+
+        # Capture stdout
+        captured = io.StringIO()
+        handler = logging.StreamHandler(captured)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logger.addHandler(handler)
+
+        with log_context("Should Not Appear", logger, silent=True):
+            pass
+
+        logger.removeHandler(handler)
+        output = captured.getvalue()
+        assert "Should Not Appear" not in output
 
 
 class TestRequestContext:
@@ -609,15 +547,6 @@ class TestRequestContext:
             assert source_var.get() == "PROXY"
 
         assert source_var.get() == "original"
-
-    def test_request_context_resets_depth(self):
-        """Request context should reset tree depth to 0."""
-        tree_depth_var.set(5)  # Simulate existing depth
-
-        with request_context("reqid"):
-            assert tree_depth_var.get() == 0
-
-        assert tree_depth_var.get() == 5
 
 
 class TestFormatObject:
@@ -885,20 +814,6 @@ class TestSetupGridLogging:
         assert logger is not None
 
 
-class TestTreeBuilderEdgeCases:
-    """Additional edge case tests for TreeBuilder."""
-
-    def test_get_prefix_stack_false_values(self):
-        """Stack with False values should use spaces instead of pipes."""
-        tree_depth_var.set(3)
-        tree_stack_var.set([False, True])
-        is_last_in_context_var.set(False)
-
-        result = TreeBuilder.get_prefix()
-        # Should have spaces for False stack values
-        assert result is not None
-
-
 class TestProgressLineExtended:
     """Extended tests for ProgressLine update and finish methods."""
 
@@ -1060,35 +975,9 @@ class TestFlushBurstBuffer:
 class TestGridFormatterEdgeCases:
     """Additional edge cases for GridFormatter."""
 
-    def test_format_with_tree_disabled(self):
-        """GridFormatter with show_tree=False should not include tree prefix."""
-        formatter = GridFormatter(
-            show_tree=False, colorize=False, burst_suppression=False
-        )
-        record = logging.LogRecord(
-            name="test",
-            level=logging.INFO,
-            pathname="",
-            lineno=0,
-            msg="No tree message",
-            args=(),
-            exc_info=None,
-        )
-
-        tree_depth_var.set(2)  # Would normally show tree
-        tree_stack_var.set([True])
-
-        result = formatter.format(record)
-
-        # Should not have tree characters
-        assert "├" not in result
-        assert "│" not in result
-
     def test_format_equals_separator_skipped(self):
         """Separator lines starting with === should be skipped."""
-        formatter = GridFormatter(
-            show_tree=True, colorize=False, burst_suppression=False
-        )
+        formatter = GridFormatter(colorize=False, burst_suppression=False)
         record = logging.LogRecord(
             name="test",
             level=logging.INFO,
@@ -1128,7 +1017,6 @@ class TestPlainGridFormatterEdgeCases:
             )
             request_id_var.set("lvltest")
             source_var.set("test")
-            tree_depth_var.set(0)
 
             result = formatter.format(record)
             assert expected in result

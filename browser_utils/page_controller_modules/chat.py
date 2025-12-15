@@ -26,7 +26,7 @@ class ChatController(BaseController):
 
     async def clear_chat_history(self, check_client_disconnected: Callable):
         """清空聊天记录。"""
-        self.logger.info(" 开始清空聊天记录...")
+        self.logger.info("开始清空聊天记录...")
         await self._check_disconnect(check_client_disconnected, "Start Clear Chat")
 
         try:
@@ -34,10 +34,10 @@ class ChatController(BaseController):
             # 导致后续请求无法发出而卡住,故先检查并点击发送按钮(此时是停止功能)
             submit_button_locator = self.page.locator(SUBMIT_BUTTON_SELECTOR)
             try:
-                self.logger.info(" 尝试检查发送按钮状态...")
+                self.logger.info("尝试检查发送按钮状态...")
                 # 使用较短的超时时间（1秒），避免长时间阻塞，因为这不是清空流程的常见步骤
                 await expect_async(submit_button_locator).to_be_enabled(timeout=1000)
-                self.logger.info(" 发送按钮可用，尝试点击并等待1秒...")
+                self.logger.info("发送按钮可用，尝试点击并等待1秒...")
                 await submit_button_locator.click(timeout=CLICK_TIMEOUT_MS)
                 try:
                     await expect_async(submit_button_locator).to_be_disabled(
@@ -45,7 +45,7 @@ class ChatController(BaseController):
                     )
                 except Exception:
                     pass
-                self.logger.info(" 发送按钮点击完成。")
+                self.logger.info("发送按钮点击完成。")
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -90,13 +90,13 @@ class ChatController(BaseController):
                     check_client_disconnected,
                 )
                 await self._verify_chat_cleared(check_client_disconnected)
-                self.logger.info(" 聊天已清空，重新启用 '临时聊天' 模式...")
+                self.logger.info("聊天已清空，重新启用 '临时聊天' 模式...")
                 await enable_temporary_chat_mode(self.page)
 
         except Exception as e_clear:
             if isinstance(e_clear, asyncio.CancelledError):
                 raise
-            self.logger.error(f" 清空聊天过程中发生错误: {e_clear}")
+            self.logger.error(f"清空聊天过程中发生错误: {e_clear}")
             error_name = getattr(e_clear, "name", "")
             if not (
                 isinstance(e_clear, ClientDisconnectedError)
@@ -139,7 +139,7 @@ class ChatController(BaseController):
                 overlay_initially_visible = True
                 self.logger.info(' 清空聊天确认遮罩层已可见。直接点击"继续"。')
         except TimeoutError:
-            self.logger.info(" 清空聊天确认遮罩层初始不可见 (检查超时或未找到)。")
+            self.logger.info("清空聊天确认遮罩层初始不可见 (检查超时或未找到)。")
             overlay_initially_visible = False
         except Exception as e_vis_check:
             self.logger.warning(
@@ -192,18 +192,18 @@ class ChatController(BaseController):
                 except asyncio.CancelledError:
                     raise
                 except Exception as force_click_err:
-                    self.logger.error(f" 清空按钮强制点击仍失败: {force_click_err}")
+                    self.logger.error(f"清空按钮强制点击仍失败: {force_click_err}")
                     raise
             await self._check_disconnect(
                 check_client_disconnected, '清空聊天 - 点击"清空聊天"后'
             )
 
             try:
-                self.logger.info(f" 等待清空聊天确认遮罩层出现: {OVERLAY_SELECTOR}")
+                self.logger.info(f"等待清空聊天确认遮罩层出现: {OVERLAY_SELECTOR}")
                 await expect_async(overlay_locator).to_be_visible(
                     timeout=WAIT_FOR_ELEMENT_TIMEOUT_MS
                 )
-                self.logger.info(" 清空聊天确认遮罩层已出现。")
+                self.logger.info("清空聊天确认遮罩层已出现。")
             except TimeoutError:
                 error_msg = f"等待清空聊天确认遮罩层超时 (点击清空按钮后)。请求 ID: {self.req_id}"
                 self.logger.error(error_msg)
@@ -257,7 +257,7 @@ class ChatController(BaseController):
                     timeout=CLEAR_CHAT_VERIFY_TIMEOUT_MS
                 )
                 await expect_async(overlay_locator).to_be_hidden(timeout=1000)
-                self.logger.info(" 清空聊天确认对话框已成功消失。")
+                self.logger.info("清空聊天确认对话框已成功消失。")
                 break
             except TimeoutError:
                 self.logger.warning(
@@ -277,7 +277,7 @@ class ChatController(BaseController):
                     )
                     raise Exception(error_msg)
             except ClientDisconnectedError:
-                self.logger.info(" 客户端在等待清空确认对话框消失时断开连接。")
+                self.logger.info("客户端在等待清空确认对话框消失时断开连接。")
                 raise
             except Exception as other_err:
                 if isinstance(other_err, asyncio.CancelledError):
@@ -337,7 +337,7 @@ class ChatController(BaseController):
             await expect_async(last_response_container).to_be_hidden(
                 timeout=CLEAR_CHAT_VERIFY_TIMEOUT_MS - 500
             )
-            self.logger.info(" 聊天已成功清空 (验证通过 - 最后响应容器隐藏)。")
+            self.logger.info("聊天已成功清空 (验证通过 - 最后响应容器隐藏)。")
         except asyncio.CancelledError:
             raise
         except Exception as verify_err:

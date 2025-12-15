@@ -21,17 +21,17 @@ async def detect_and_extract_page_error(page: AsyncPage, req_id: str) -> Optiona
         message_locator = error_toast_locator.locator("span.content-text")
         error_message = await message_locator.text_content(timeout=500)
         if error_message:
-            logger.error(f"    检测到并提取错误消息: {error_message}")
+            logger.error(f"检测到并提取错误消息: {error_message}")
             return error_message.strip()
         else:
-            logger.warning("    检测到错误提示框，但无法提取消息。")
+            logger.warning("检测到错误提示框，但无法提取消息。")
             return "检测到错误提示框，但无法提取特定消息。"
     except PlaywrightAsyncError:
         return None
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        logger.warning(f"    检查页面错误时出错: {e}")
+        logger.warning(f"检查页面错误时出错: {e}")
         return None
 
 

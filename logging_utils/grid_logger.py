@@ -3,7 +3,6 @@ Grid-Based Professional Logging System v2.0
 ============================================
 A verbose but clean logging system with:
 - Fixed-width grid layout for perfect column alignment
-- Hierarchical ASCII tree structure for nested operations
 - Semantic syntax highlighting for values and tokens
 - Burst suppression (deduplication) for repeated messages
 - Progress indicators that update on the same line
@@ -20,11 +19,8 @@ from logging_utils.core.constants import (
     Columns,
 )
 from logging_utils.core.context import (
-    is_last_in_context_var,
     request_id_var,
     source_var,
-    tree_depth_var,
-    tree_stack_var,
 )
 from logging_utils.core.logger import (
     AbortErrorFilter,
@@ -46,7 +42,6 @@ from logging_utils.core.rendering import (
     PlainGridFormatter,
     ProgressLine,
     SemanticHighlighter,
-    TreeBuilder,
     _burst_buffer,
     _format_value,
     format_object,
@@ -59,10 +54,6 @@ __all__ = [
     "SOURCE_MAP",
     "request_id_var",
     "source_var",
-    "tree_depth_var",
-    "tree_stack_var",
-    "is_last_in_context_var",
-    "TreeBuilder",
     "SemanticHighlighter",
     "BurstBuffer",
     "_burst_buffer",
@@ -105,7 +96,7 @@ if __name__ == "__main__":
     req_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=7))
 
     # =========================================================================
-    # Test 1: Basic logging with tree structure
+    # Test 1: Basic logging with source switching
     # =========================================================================
 
     set_request_id(req_id)
@@ -114,18 +105,18 @@ if __name__ == "__main__":
     logger.info("Received /v1/chat/completions request (Stream=True)")
 
     set_source("WORKR")
+    logger.info("Processing request logic")
+    logger.info("Dequeued request from queue")
 
-    with log_context("Processing request logic", logger):
-        logger.info("Dequeued request from queue")
+    # Use log_context for source switching
+    with log_context("UI State Validation", logger):
+        logger.info("Temperature matches (0.0). No update needed.")
+        logger.info("Max tokens: 8192, Top-P: 0.95")
 
-        with log_context("UI State Validation", logger):
-            logger.info("Temperature matches (0.0). No update needed.")
-            logger.info("Max tokens: 8192, Top-P: 0.95")
-
-        with log_context("Model Switching", logger, source="BROWR"):
-            logger.info("Current model: 'gemini-1.5-flash'")
-            logger.info("Target model: 'gemini-2.0-flash-exp'")
-            logger.info("Model switch completed in 1.2s")
+    with log_context("Model Switching", logger, source="BROWR"):
+        logger.info("Current model: 'gemini-1.5-flash'")
+        logger.info("Target model: 'gemini-2.0-flash-exp'")
+        logger.info("Model switch completed in 1.2s")
 
     # =========================================================================
     # Test 2: Burst suppression

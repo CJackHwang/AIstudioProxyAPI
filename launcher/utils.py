@@ -91,7 +91,7 @@ def find_pids_on_port(port: int) -> List[int]:
 def kill_process_interactive(pid: int) -> bool:
     system_platform = platform.system()
     success = False
-    logger.info(f"  尝试终止进程 PID: {pid}...")
+    logger.info(f"尝试终止进程 PID: {pid}...")
     try:
         if system_platform == "Linux" or system_platform == "Darwin":
             result_term = subprocess.run(
@@ -103,7 +103,7 @@ def kill_process_interactive(pid: int) -> bool:
                 check=False,
             )
             if result_term.returncode == 0:
-                logger.info(f"    PID {pid} 已发送 SIGTERM 信号。")
+                logger.info(f"PID {pid} 已发送 SIGTERM 信号。")
                 success = True
             else:
                 logger.warning(
@@ -118,7 +118,7 @@ def kill_process_interactive(pid: int) -> bool:
                     check=False,
                 )
                 if result_kill.returncode == 0:
-                    logger.info(f"    PID {pid} 已发送 SIGKILL 信号。")
+                    logger.info(f"PID {pid} 已发送 SIGKILL 信号。")
                     success = True
                 else:
                     logger.error(
@@ -139,13 +139,13 @@ def kill_process_interactive(pid: int) -> bool:
             if result.returncode == 0 and (
                 "SUCCESS" in output.upper() or "成功" in output
             ):
-                logger.info(f"    PID {pid} 已通过 taskkill /F 终止。")
+                logger.info(f"PID {pid} 已通过 taskkill /F 终止。")
                 success = True
             elif (
                 "could not find process" in error_output.lower()
                 or "找不到" in error_output
             ):  # 进程可能已自行退出
-                logger.info(f"    PID {pid} 执行 taskkill 时未找到 (可能已退出)。")
+                logger.info(f"PID {pid} 执行 taskkill 时未找到 (可能已退出)。")
                 success = True  # 视为成功，因为目标是端口可用
             else:
                 # 统计错误数量而非逐个输出
@@ -156,11 +156,11 @@ def kill_process_interactive(pid: int) -> bool:
                         f"    PID {pid} taskkill /F: (抑制 {error_count} 条错误信息)"
                     )
                 else:
-                    logger.warning(f"    PID {pid} taskkill /F 返回非零状态")
+                    logger.warning(f"PID {pid} taskkill /F 返回非零状态")
         else:
-            logger.warning(f"    不支持的操作系统 '{system_platform}' 用于终止进程。")
+            logger.warning(f"不支持的操作系统 '{system_platform}' 用于终止进程。")
     except Exception as e:
-        logger.error(f"    终止 PID {pid} 时发生意外错误: {e}", exc_info=True)
+        logger.error(f"终止 PID {pid} 时发生意外错误: {e}", exc_info=True)
     return success
 
 

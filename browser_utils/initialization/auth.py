@@ -20,12 +20,12 @@ async def wait_for_model_list_and_handle_auth_save(temp_context, launch_mode, lo
     import server
 
     # 等待模型列表响应，确认登录成功
-    logger.info("   等待模型列表响应以确认登录成功...")
+    logger.info("等待模型列表响应以确认登录成功...")
     try:
         await asyncio.wait_for(server.model_list_fetch_event.wait(), timeout=30.0)
-        logger.info("   检测到模型列表响应，登录确认成功！")
+        logger.info("检测到模型列表响应，登录确认成功！")
     except asyncio.TimeoutError:
-        logger.warning("   等待模型列表响应超时，但继续处理认证保存...")
+        logger.warning("等待模型列表响应超时，但继续处理认证保存...")
 
     # Determine filename: env var > auto-generate
     filename = os.environ.get("SAVE_AUTH_FILENAME", "").strip()
@@ -48,12 +48,12 @@ async def _save_auth_state(temp_context, filename: str):
 
     try:
         await temp_context.storage_state(path=auth_save_path)
-        logger.info(f"   认证状态已保存到: {auth_save_path}")
+        logger.info(f"认证状态已保存到: {auth_save_path}")
         print(f"   认证状态已保存到: {auth_save_path}", flush=True)
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        logger.error(f"   保存认证状态失败: {e}", exc_info=True)
+        logger.error(f"保存认证状态失败: {e}", exc_info=True)
         print(f"   保存认证状态失败: {e}", flush=True)
 
     print("=" * 50 + "\n", flush=True)

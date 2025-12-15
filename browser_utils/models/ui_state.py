@@ -34,7 +34,7 @@ async def _verify_ui_state_settings(page: AsyncPage, req_id: str = "unknown") ->
         )
 
         if not prefs_str:
-            logger.warning(" localStorage.aiStudioUserPreference 不存在")
+            logger.warning("localStorage.aiStudioUserPreference 不存在")
             return {
                 "exists": False,
                 "isAdvancedOpen": None,
@@ -67,7 +67,7 @@ async def _verify_ui_state_settings(page: AsyncPage, req_id: str = "unknown") ->
             return result
 
         except json.JSONDecodeError as e:
-            logger.error(f" 解析localStorage JSON失败: {e}")
+            logger.error(f"解析localStorage JSON失败: {e}")
             return {
                 "exists": False,
                 "isAdvancedOpen": None,
@@ -79,7 +79,7 @@ async def _verify_ui_state_settings(page: AsyncPage, req_id: str = "unknown") ->
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        logger.error(f" 验证UI状态设置时发生错误: {e}")
+        logger.error(f"验证UI状态设置时发生错误: {e}")
         return {
             "exists": False,
             "isAdvancedOpen": None,
@@ -101,13 +101,13 @@ async def _force_ui_state_settings(page: AsyncPage, req_id: str = "unknown") -> 
         bool: 设置是否成功
     """
     try:
-        logger.info(" 开始强制设置UI状态...")
+        logger.info("开始强制设置UI状态...")
 
         # 首先验证当前状态
         current_state = await _verify_ui_state_settings(page, req_id)
 
         if not current_state["needsUpdate"]:
-            logger.info(" UI状态已正确设置，无需更新")
+            logger.info("UI状态已正确设置，无需更新")
             return True
 
         # 获取现有preferences或创建新的
@@ -124,21 +124,21 @@ async def _force_ui_state_settings(page: AsyncPage, req_id: str = "unknown") -> 
             prefs_str,
         )
 
-        logger.info(" 已强制设置: isAdvancedOpen=true, areToolsOpen=true")
+        logger.info("已强制设置: isAdvancedOpen=true, areToolsOpen=true")
 
         # 验证设置是否成功
         verify_state = await _verify_ui_state_settings(page, req_id)
         if not verify_state["needsUpdate"]:
-            logger.info(" UI状态设置验证成功")
+            logger.info("UI状态设置验证成功")
             return True
         else:
-            logger.warning(" UI状态设置验证失败，可能需要重试")
+            logger.warning("UI状态设置验证失败，可能需要重试")
             return False
 
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        logger.error(f" 强制设置UI状态时发生错误: {e}")
+        logger.error(f"强制设置UI状态时发生错误: {e}")
         return False
 
 
@@ -161,18 +161,18 @@ async def _force_ui_state_with_retry(
         bool: 设置是否最终成功
     """
     for attempt in range(1, max_retries + 1):
-        logger.info(f" 尝试强制设置UI状态 (第 {attempt}/{max_retries} 次)")
+        logger.info(f"尝试强制设置UI状态 (第 {attempt}/{max_retries} 次)")
 
         success = await _force_ui_state_settings(page, req_id)
         if success:
-            logger.info(f" UI状态设置在第 {attempt} 次尝试中成功")
+            logger.info(f"UI状态设置在第 {attempt} 次尝试中成功")
             return True
 
         if attempt < max_retries:
-            logger.warning(f" 第 {attempt} 次尝试失败，{retry_delay}秒后重试...")
+            logger.warning(f"第 {attempt} 次尝试失败，{retry_delay}秒后重试...")
             await asyncio.sleep(retry_delay)
         else:
-            logger.error(f" UI状态设置在 {max_retries} 次尝试后仍然失败")
+            logger.error(f"UI状态设置在 {max_retries} 次尝试后仍然失败")
 
     return False
 
@@ -189,7 +189,7 @@ async def _verify_and_apply_ui_state(page: AsyncPage, req_id: str = "unknown") -
         bool: 操作是否成功
     """
     try:
-        logger.info(" 开始验证并应用UI状态设置...")
+        logger.info("开始验证并应用UI状态设置...")
 
         # 首先验证当前状态
         state = await _verify_ui_state_settings(page, req_id)
@@ -199,14 +199,14 @@ async def _verify_and_apply_ui_state(page: AsyncPage, req_id: str = "unknown") -
         )
 
         if state["needsUpdate"]:
-            logger.info(" 检测到UI状态需要更新，正在应用强制设置...")
+            logger.info("检测到UI状态需要更新，正在应用强制设置...")
             return await _force_ui_state_with_retry(page, req_id)
         else:
-            logger.info(" UI状态已正确设置，无需更新")
+            logger.info("UI状态已正确设置，无需更新")
             return True
 
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        logger.error(f" 验证并应用UI状态设置时发生错误: {e}")
+        logger.error(f"验证并应用UI状态设置时发生错误: {e}")
         return False

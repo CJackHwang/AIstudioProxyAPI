@@ -52,14 +52,14 @@ async def initialize_page_logic(  # pragma: no cover
     temp_context: Optional[AsyncBrowserContext] = None
     storage_state_path_to_use: Optional[str] = None
     launch_mode = os.environ.get("LAUNCH_MODE", "debug")
-    logger.info(f"   检测到启动模式: {launch_mode}")
+    logger.info(f"检测到启动模式: {launch_mode}")
     loop = asyncio.get_running_loop()
 
     # 优先使用传入的 storage_state_path
     if storage_state_path:
         if os.path.exists(storage_state_path):
             storage_state_path_to_use = storage_state_path
-            logger.info(f"   使用指定的认证文件: {storage_state_path_to_use}")
+            logger.info(f"使用指定的认证文件: {storage_state_path_to_use}")
         else:
             logger.error(f"指定的认证文件不存在: {storage_state_path}")
             # 如果是明确指定的路径但不存在，这应该是一个错误
@@ -72,7 +72,7 @@ async def initialize_page_logic(  # pragma: no cover
                 constructed_path = auth_filename
                 if os.path.exists(constructed_path):
                     storage_state_path_to_use = constructed_path
-                    logger.info(f"   无头模式将使用的认证文件: {constructed_path}")
+                    logger.info(f"无头模式将使用的认证文件: {constructed_path}")
                 else:
                     logger.error(
                         f"{launch_mode} 模式认证文件无效或不存在: '{constructed_path}'"
@@ -121,7 +121,7 @@ async def initialize_page_logic(  # pragma: no cover
                 f"   (使用 storage_state='{os.path.basename(storage_state_path_to_use)}')"
             )
         else:
-            logger.info("   (不使用 storage_state)")
+            logger.info("(不使用 storage_state)")
 
         # 代理设置需要从server模块中获取
         import server
@@ -132,10 +132,10 @@ async def initialize_page_logic(  # pragma: no cover
                 f"   (浏览器上下文将使用代理: {server.PLAYWRIGHT_PROXY_SETTINGS['server']})"
             )
         else:
-            logger.info("   (浏览器上下文不使用显式代理配置)")
+            logger.info("(浏览器上下文不使用显式代理配置)")
 
         context_options["ignore_https_errors"] = True
-        logger.info("   (浏览器上下文将忽略 HTTPS 错误)")
+        logger.info("(浏览器上下文将忽略 HTTPS 错误)")
 
         temp_context = await browser.new_context(**context_options)
 
@@ -162,7 +162,7 @@ async def initialize_page_logic(  # pragma: no cover
                 ):
                     found_page = p_iter
                     current_url = page_url_to_check
-                    logger.info(f"   找到已打开的 AI Studio 页面: {current_url}")
+                    logger.info(f"找到已打开的 AI Studio 页面: {current_url}")
                     if found_page:
                         logger.info(
                             f"   为已存在的页面 {found_page.url} 添加模型列表响应监听器。"
@@ -172,9 +172,9 @@ async def initialize_page_logic(  # pragma: no cover
                         setup_debug_listeners(found_page)
                     break
             except PlaywrightAsyncError as pw_err_url:
-                logger.warning(f"   检查页面 URL 时出现 Playwright 错误: {pw_err_url}")
+                logger.warning(f"检查页面 URL 时出现 Playwright 错误: {pw_err_url}")
             except AttributeError as attr_err_url:
-                logger.warning(f"   检查页面 URL 时出现属性错误: {attr_err_url}")
+                logger.warning(f"检查页面 URL 时出现属性错误: {attr_err_url}")
             except asyncio.CancelledError:
                 raise
             except Exception as e_url_check:
@@ -188,7 +188,7 @@ async def initialize_page_logic(  # pragma: no cover
             )
             found_page = await temp_context.new_page()
             if found_page:
-                logger.info("   为新创建的页面添加模型列表响应监听器 (导航前)。")
+                logger.info("为新创建的页面添加模型列表响应监听器 (导航前)。")
                 found_page.on("response", _handle_model_list_response)
                 # Setup debug listeners for error snapshots
                 setup_debug_listeners(found_page)
@@ -211,8 +211,8 @@ async def initialize_page_logic(  # pragma: no cover
                     logger.error(
                         f"导航到 '{target_full_url}' 失败，出现网络中断错误 (NS_ERROR_NET_INTERRUPT)。"
                     )
-                    logger.error("   这通常表示浏览器在尝试加载页面时连接被意外断开。")
-                    logger.error("   可能的原因及排查建议:")
+                    logger.error("这通常表示浏览器在尝试加载页面时连接被意外断开。")
+                    logger.error("可能的原因及排查建议:")
                     logger.error(
                         "     1. 网络连接: 请检查你的本地网络连接是否稳定，并尝试在普通浏览器中访问目标网址。"
                     )
@@ -253,7 +253,7 @@ async def initialize_page_logic(  # pragma: no cover
                     print(USER_INPUT_START_MARKER_SERVER, flush=True)
                     await loop.run_in_executor(None, input, login_prompt)
                     print(USER_INPUT_END_MARKER_SERVER, flush=True)
-                logger.info("   正在检查登录状态...")
+                logger.info("正在检查登录状态...")
                 try:
                     await found_page.wait_for_url(
                         f"**/{AI_STUDIO_URL_PATTERN}**", timeout=180000
@@ -262,7 +262,7 @@ async def initialize_page_logic(  # pragma: no cover
                     if login_url_pattern in current_url:
                         logger.error("手动登录尝试后，页面似乎仍停留在登录页面。")
                         raise RuntimeError("手动登录尝试后仍在登录页面。")
-                    logger.info("   登录成功！请不要操作浏览器窗口，等待后续提示。")
+                    logger.info("登录成功！请不要操作浏览器窗口，等待后续提示。")
 
                     # 登录成功后，调用认证保存逻辑
                     if os.environ.get("AUTO_SAVE_AUTH", "false").lower() == "true":
@@ -373,11 +373,11 @@ async def initialize_page_logic(  # pragma: no cover
                     "   尝试关闭临时的浏览器上下文 due to initialization error."
                 )
                 await temp_context.close()
-                logger.info("   临时浏览器上下文已关闭。")
+                logger.info("临时浏览器上下文已关闭。")
             except asyncio.CancelledError:
                 raise
             except Exception as close_err:
-                logger.warning(f"   关闭临时浏览器上下文时出错: {close_err}")
+                logger.warning(f"关闭临时浏览器上下文时出错: {close_err}")
         from browser_utils.operations import save_error_snapshot
 
         await save_error_snapshot("init_unexpected_error")
@@ -393,11 +393,11 @@ async def close_page_logic() -> Tuple[None, bool]:  # pragma: no cover
     if state.page_instance and not state.page_instance.is_closed():
         try:
             await state.page_instance.close()
-            logger.info("   页面已关闭")
+            logger.info("页面已关闭")
         except PlaywrightAsyncError as pw_err:
-            logger.warning(f"   关闭页面时出现Playwright错误: {pw_err}")
+            logger.warning(f"关闭页面时出现Playwright错误: {pw_err}")
         except asyncio.TimeoutError as timeout_err:
-            logger.warning(f"   关闭页面时超时: {timeout_err}")
+            logger.warning(f"关闭页面时超时: {timeout_err}")
         except asyncio.CancelledError:
             raise
         except Exception as other_err:
@@ -413,25 +413,25 @@ async def close_page_logic() -> Tuple[None, bool]:  # pragma: no cover
 
 async def signal_camoufox_shutdown() -> None:  # pragma: no cover
     """发送关闭信号到Camoufox服务器"""
-    logger.info("   尝试发送关闭信号到 Camoufox 服务器 (此功能可能已由父进程处理)...")
+    logger.info("尝试发送关闭信号到 Camoufox 服务器 (此功能可能已由父进程处理)...")
     ws_endpoint = os.environ.get("CAMOUFOX_WS_ENDPOINT")
     if not ws_endpoint:
-        logger.warning("   无法发送关闭信号：未找到 CAMOUFOX_WS_ENDPOINT 环境变量。")
+        logger.warning("无法发送关闭信号：未找到 CAMOUFOX_WS_ENDPOINT 环境变量。")
         return
 
     # 需要访问全局浏览器实例
     import server
 
     if not server.browser_instance or not server.browser_instance.is_connected():
-        logger.warning("   浏览器实例已断开或未初始化，跳过关闭信号发送。")
+        logger.warning("浏览器实例已断开或未初始化，跳过关闭信号发送。")
         return
     try:
         await asyncio.sleep(0.2)
-        logger.info("   (模拟) 关闭信号已处理。")
+        logger.info("(模拟) 关闭信号已处理。")
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        logger.error(f"   发送关闭信号过程中捕获异常: {e}", exc_info=True)
+        logger.error(f"发送关闭信号过程中捕获异常: {e}", exc_info=True)
 
 
 async def enable_temporary_chat_mode(page: AsyncPage) -> None:  # pragma: no cover

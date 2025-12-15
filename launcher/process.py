@@ -215,10 +215,10 @@ class CamoufoxProcessManager:
             elif not self.captured_ws_endpoint and (
                 self.camoufox_proc and self.camoufox_proc.poll() is not None
             ):
-                logger.error("  Camoufox 内部进程已退出，且未能捕获到 WebSocket 端点。")
+                logger.error("Camoufox 内部进程已退出，且未能捕获到 WebSocket 端点。")
                 sys.exit(1)
             elif not self.captured_ws_endpoint:
-                logger.error("  未能捕获到 WebSocket 端点。")
+                logger.error("未能捕获到 WebSocket 端点。")
                 sys.exit(1)
 
         except Exception as e_launch_camoufox_internal:

@@ -468,7 +468,7 @@ async def save_comprehensive_snapshot(
     try:
         # Create directory structure
         snapshot_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"   Created snapshot directory: {snapshot_dir}")
+        logger.info(f"Created snapshot directory: {snapshot_dir}")
 
         # === 1. Screenshot ===
         screenshot_path = snapshot_dir / "screenshot.png"
@@ -476,11 +476,11 @@ async def save_comprehensive_snapshot(
             await page.screenshot(
                 path=str(screenshot_path), full_page=True, timeout=15000
             )
-            logger.info("   Screenshot saved")
+            logger.info("Screenshot saved")
         except asyncio.CancelledError:
             raise
         except Exception as ss_err:
-            logger.error(f"   Screenshot failed: {ss_err}")
+            logger.error(f"Screenshot failed: {ss_err}")
 
         # === 2. HTML Dump ===
         html_path = snapshot_dir / "dom_dump.html"
@@ -488,11 +488,11 @@ async def save_comprehensive_snapshot(
             content = await page.content()
             with open(html_path, "w", encoding="utf-8") as f:
                 f.write(content)
-            logger.info("   HTML dump saved")
+            logger.info("HTML dump saved")
         except asyncio.CancelledError:
             raise
         except Exception as html_err:
-            logger.error(f"   HTML dump failed: {html_err}")
+            logger.error(f"HTML dump failed: {html_err}")
 
         # === 3. DOM Structure (Human-Readable) ===
         dom_structure_path = snapshot_dir / "dom_structure.txt"
@@ -500,11 +500,11 @@ async def save_comprehensive_snapshot(
             dom_tree = await capture_dom_structure(page)
             with open(dom_structure_path, "w", encoding="utf-8") as f:
                 f.write(dom_tree)
-            logger.info("   DOM structure saved")
+            logger.info("DOM structure saved")
         except asyncio.CancelledError:
             raise
         except Exception as dom_err:
-            logger.error(f"   DOM structure failed: {dom_err}")
+            logger.error(f"DOM structure failed: {dom_err}")
 
         # === 4. Console Logs ===
         console_logs_path = snapshot_dir / "console_logs.txt"
@@ -526,13 +526,13 @@ async def save_comprehensive_snapshot(
                             f.write(f"  Location: {location}\n")
                         f.write("\n")
 
-                logger.info(f"   Console logs saved ({len(console_logs)} entries)")
+                logger.info(f"Console logs saved ({len(console_logs)} entries)")
             else:
                 with open(console_logs_path, "w", encoding="utf-8") as f:
                     f.write("No console logs captured.\n")
-                logger.info("   No console logs available")
+                logger.info("No console logs available")
         except Exception as console_err:
-            logger.error(f"   Console logs failed: {console_err}")
+            logger.error(f"Console logs failed: {console_err}")
 
         # === 5. Network Requests ===
         network_path = snapshot_dir / "network_requests.json"
@@ -544,9 +544,9 @@ async def save_comprehensive_snapshot(
 
             req_count = len(network_log.get("requests", []))
             resp_count = len(network_log.get("responses", []))
-            logger.info(f"   Network log saved ({req_count} reqs, {resp_count} resps)")
+            logger.info(f"Network log saved ({req_count} reqs, {resp_count} resps)")
         except Exception as net_err:
-            logger.error(f"   Network log failed: {net_err}")
+            logger.error(f"Network log failed: {net_err}")
 
         # === 6. Playwright State ===
         playwright_state_path = snapshot_dir / "playwright_state.json"
@@ -554,11 +554,11 @@ async def save_comprehensive_snapshot(
             pw_state = await capture_playwright_state(page, locators)
             with open(playwright_state_path, "w", encoding="utf-8") as f:
                 json.dump(pw_state, f, indent=2, ensure_ascii=False)
-            logger.info("   Playwright state saved")
+            logger.info("Playwright state saved")
         except asyncio.CancelledError:
             raise
         except Exception as pw_err:
-            logger.error(f"   Playwright state failed: {pw_err}")
+            logger.error(f"Playwright state failed: {pw_err}")
 
         # === 7. System Context (LLM Context) ===
         context_path = snapshot_dir / "llm.json"
@@ -566,11 +566,11 @@ async def save_comprehensive_snapshot(
             system_context = await capture_system_context(req_id, error_name)
             with open(context_path, "w", encoding="utf-8") as f:
                 json.dump(system_context, f, indent=2, ensure_ascii=False)
-            logger.info("   LLM context saved")
+            logger.info("LLM context saved")
         except asyncio.CancelledError:
             raise
         except Exception as ctx_err:
-            logger.error(f"   LLM context failed: {ctx_err}")
+            logger.error(f"LLM context failed: {ctx_err}")
 
         # === 8. Metadata ===
         metadata_path = snapshot_dir / "metadata.json"
@@ -612,17 +612,17 @@ async def save_comprehensive_snapshot(
 
             with open(metadata_path, "w", encoding="utf-8") as f:
                 json.dump(metadata, f, indent=2, ensure_ascii=False)
-            logger.info("   Metadata saved")
+            logger.info("Metadata saved")
         except Exception as meta_err:
-            logger.error(f"   Metadata failed: {meta_err}")
+            logger.error(f"Metadata failed: {meta_err}")
 
-        logger.info(f" Comprehensive snapshot complete: {snapshot_dir.name}")
+        logger.info(f"Comprehensive snapshot complete: {snapshot_dir.name}")
         return str(snapshot_dir)
 
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        logger.error(f" Failed to create snapshot directory: {e}", exc_info=True)
+        logger.error(f"Failed to create snapshot directory: {e}", exc_info=True)
         return ""
 
 

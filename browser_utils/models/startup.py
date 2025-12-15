@@ -35,9 +35,9 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
         if not initial_prefs_str:
             needs_reload_and_storage_update = True
             reason_for_reload = "localStorage.aiStudioUserPreference 未找到。"
-            logger.info(f"   判定需要刷新和存储更新: {reason_for_reload}")
+            logger.info(f"判定需要刷新和存储更新: {reason_for_reload}")
         else:
-            logger.info("   localStorage 中找到 'aiStudioUserPreference'。正在解析...")
+            logger.info("localStorage 中找到 'aiStudioUserPreference'。正在解析...")
             try:
                 pref_obj = json.loads(initial_prefs_str)
                 prompt_model_path = pref_obj.get("promptModel")
@@ -49,14 +49,14 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
                 if not is_prompt_model_valid:
                     needs_reload_and_storage_update = True
                     reason_for_reload = "localStorage.promptModel 无效或未设置。"
-                    logger.info(f"   判定需要刷新和存储更新: {reason_for_reload}")
+                    logger.info(f"判定需要刷新和存储更新: {reason_for_reload}")
                 else:
                     # 使用新的UI状态验证功能
                     ui_state = await _verify_ui_state_settings(page, "initial")
                     if ui_state["needsUpdate"]:
                         needs_reload_and_storage_update = True
                         reason_for_reload = f"UI状态需要更新: isAdvancedOpen={ui_state['isAdvancedOpen']}, areToolsOpen={ui_state['areToolsOpen']} (期望: True)"
-                        logger.info(f"   判定需要刷新和存储更新: {reason_for_reload}")
+                        logger.info(f"判定需要刷新和存储更新: {reason_for_reload}")
                     else:
                         state.current_ai_studio_model_id = prompt_model_path.split("/")[
                             -1
@@ -69,10 +69,10 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
                 reason_for_reload = (
                     "解析 localStorage.aiStudioUserPreference JSON 失败。"
                 )
-                logger.error(f"   判定需要刷新和存储更新: {reason_for_reload}")
+                logger.error(f"判定需要刷新和存储更新: {reason_for_reload}")
 
         if needs_reload_and_storage_update:
-            logger.info(f"   执行刷新和存储更新流程，原因: {reason_for_reload}")
+            logger.info(f"执行刷新和存储更新流程，原因: {reason_for_reload}")
             logger.info(
                 "   步骤 1: 调用 _set_model_from_page_display(set_storage=True) 更新 localStorage 和全局模型 ID..."
             )
@@ -94,17 +94,17 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
                     await expect_async(page.locator(INPUT_SELECTOR)).to_be_visible(
                         timeout=30000
                     )
-                    logger.info(f"   页面已成功重新加载到: {page.url}")
+                    logger.info(f"页面已成功重新加载到: {page.url}")
 
                     # 页面重新加载后验证UI状态
-                    logger.info("   页面重新加载完成，验证UI状态设置...")
+                    logger.info("页面重新加载完成，验证UI状态设置...")
                     reload_ui_state_success = await _verify_and_apply_ui_state(
                         page, "reload"
                     )
                     if reload_ui_state_success:
-                        logger.info("   重新加载后UI状态验证成功")
+                        logger.info("重新加载后UI状态验证成功")
                     else:
-                        logger.warning("   重新加载后UI状态验证失败")
+                        logger.warning("重新加载后UI状态验证失败")
 
                     break  # 成功则跳出循环
                 except asyncio.CancelledError:
@@ -114,7 +114,7 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
                         f"   页面重新加载尝试 {attempt + 1}/{max_retries} 失败: {reload_err}"
                     )
                     if attempt < max_retries - 1:
-                        logger.info("   将在5秒后重试...")
+                        logger.info("将在5秒后重试...")
                         await asyncio.sleep(5)
                     else:
                         logger.error(
@@ -153,7 +153,7 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
         except asyncio.CancelledError:
             raise
         except Exception as fallback_err:
-            logger.error(f"   回退设置模型ID也失败: {fallback_err}")
+            logger.error(f"回退设置模型ID也失败: {fallback_err}")
 
 
 async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = False):
@@ -165,7 +165,7 @@ async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = Fals
     model_list_fetch_event = getattr(state, "model_list_fetch_event", None)
 
     try:
-        logger.info("   尝试从页面显示元素读取当前模型名称...")
+        logger.info("尝试从页面显示元素读取当前模型名称...")
         model_name_locator = page.locator(MODEL_NAME_SELECTOR)
         displayed_model_name_from_page_raw = await model_name_locator.first.inner_text(
             timeout=7000
@@ -177,14 +177,14 @@ async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = Fals
 
         found_model_id_from_display = None
         if model_list_fetch_event and not model_list_fetch_event.is_set():
-            logger.info("   等待模型列表数据 (最多5秒) 以便转换显示名称...")
+            logger.info("等待模型列表数据 (最多5秒) 以便转换显示名称...")
             try:
                 await asyncio.wait_for(model_list_fetch_event.wait(), timeout=5.0)
             except asyncio.TimeoutError:
-                logger.warning("   等待模型列表超时，可能无法准确转换显示名称为ID。")
+                logger.warning("等待模型列表超时，可能无法准确转换显示名称为ID。")
 
         found_model_id_from_display = displayed_model_name
-        logger.info(f"   页面显示的直接是模型ID: '{found_model_id_from_display}'")
+        logger.info(f"页面显示的直接是模型ID: '{found_model_id_from_display}'")
 
         new_model_value = found_model_id_from_display
         if state.current_ai_studio_model_id != new_model_value:
@@ -214,17 +214,17 @@ async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = Fals
                     )
 
             # 使用新的强制设置功能
-            logger.info("     应用强制UI状态设置...")
+            logger.info("应用强制UI状态设置...")
             ui_state_success = await _verify_and_apply_ui_state(page, "set_model")
             if not ui_state_success:
-                logger.warning("     UI状态设置失败，使用传统方法")
+                logger.warning("UI状态设置失败，使用传统方法")
                 prefs_to_set["isAdvancedOpen"] = True
                 prefs_to_set["areToolsOpen"] = True
             else:
                 # 确保prefs_to_set也包含正确的设置
                 prefs_to_set["isAdvancedOpen"] = True
                 prefs_to_set["areToolsOpen"] = True
-            logger.info("     强制 isAdvancedOpen: true, areToolsOpen: true")
+            logger.info("强制 isAdvancedOpen: true, areToolsOpen: true")
 
             if found_model_id_from_display:
                 new_prompt_model_path = f"models/{found_model_id_from_display}"
@@ -264,4 +264,4 @@ async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = Fals
     except asyncio.CancelledError:
         raise
     except Exception as e_set_disp:
-        logger.error(f"   尝试从页面显示设置模型时出错: {e_set_disp}", exc_info=True)
+        logger.error(f"尝试从页面显示设置模型时出错: {e_set_disp}", exc_info=True)

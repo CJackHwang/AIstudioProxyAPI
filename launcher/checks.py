@@ -12,11 +12,11 @@ def ensure_auth_dirs_exist() -> None:
     logger.info("正在检查并确保认证文件目录存在...")
     try:
         os.makedirs(ACTIVE_AUTH_DIR, exist_ok=True)
-        logger.info(f"  活动认证目录就绪: {ACTIVE_AUTH_DIR}")
+        logger.info(f"活动认证目录就绪: {ACTIVE_AUTH_DIR}")
         os.makedirs(SAVED_AUTH_DIR, exist_ok=True)
-        logger.info(f"  已保存认证目录就绪: {SAVED_AUTH_DIR}")
+        logger.info(f"已保存认证目录就绪: {SAVED_AUTH_DIR}")
     except Exception as e:
-        logger.error(f"  创建认证目录失败: {e}", exc_info=True)
+        logger.error(f"创建认证目录失败: {e}", exc_info=True)
         sys.exit(1)
 
 
@@ -39,7 +39,7 @@ def check_dependencies(
         for module_name, install_package_name in required_modules.items():
             try:
                 __import__(module_name)
-                logger.info(f"  模块 '{module_name}' 已找到。")
+                logger.info(f"模块 '{module_name}' 已找到。")
             except ImportError:
                 logger.error(
                     f"  模块 '{module_name}' (包: '{install_package_name}') 未找到。"
@@ -63,19 +63,19 @@ def check_dependencies(
         from server import app as server_app_check
 
         if server_app_check:
-            logger.info("  成功从 'server.py' 导入 'app' 对象。")
+            logger.info("成功从 'server.py' 导入 'app' 对象。")
     except ImportError as e_import_server:
         logger.error(
             f"  无法从 'server.py' 导入 'app' 对象: {e_import_server}", exc_info=True
         )
-        logger.error("     请确保 'server.py' 文件存在且没有导入错误。")
+        logger.error("请确保 'server.py' 文件存在且没有导入错误。")
         dependencies_ok = False
 
     if not dependencies_ok:
         logger.error("-------------------------------------------------")
         logger.error("依赖项检查失败！")
         if missing_py_modules:
-            logger.error(f"   缺少的 Python 库: {', '.join(missing_py_modules)}")
+            logger.error(f"缺少的 Python 库: {', '.join(missing_py_modules)}")
             logger.error(
                 f"   请尝试使用 pip 安装: pip install {' '.join(missing_py_modules)}"
             )

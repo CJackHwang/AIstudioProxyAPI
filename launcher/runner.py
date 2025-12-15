@@ -241,7 +241,7 @@ class Launcher:  # pragma: no cover
                         )
                         self.effective_active_auth_json_path = None
             else:
-                logger.info("  好的，将不创建新的认证文件。")
+                logger.info("好的，将不创建新的认证文件。")
 
     def _check_xvfb(self):
         if (
@@ -254,7 +254,7 @@ class Launcher:  # pragma: no cover
                     "  Xvfb 未找到。虚拟显示模式需要 Xvfb。请安装 (例如: sudo apt-get install xvfb) 后重试。"
                 )
                 sys.exit(1)
-            logger.info("  Xvfb 已找到。")
+            logger.info("Xvfb 已找到。")
 
     def _check_server_port(self):
         server_target_port = self.args.server_port
@@ -283,7 +283,7 @@ class Launcher:  # pragma: no cover
                         .lower()
                     )
                     if choice == "y":
-                        logger.info("     用户选择尝试终止进程...")
+                        logger.info("用户选择尝试终止进程...")
                         all(kill_process_interactive(pid) for pid in pids_on_port)
                         time.sleep(2)
                         if not is_port_in_use(
@@ -376,7 +376,7 @@ class Launcher:  # pragma: no cover
             # --active-auth-json 未提供。
             if self.final_launch_mode == "debug":
                 # 对于调试模式，一律扫描全目录并提示用户选择，不自动使用任何文件
-                logger.info("  调试模式: 扫描全目录并提示用户从可用认证文件中选择...")
+                logger.info("调试模式: 扫描全目录并提示用户从可用认证文件中选择...")
             else:
                 # 对于无头模式，检查 active/ 目录中的默认认证文件
                 logger.info(
@@ -404,7 +404,7 @@ class Launcher:  # pragma: no cover
                                 f"  目录 '{ACTIVE_AUTH_DIR}' 为空或不包含JSON文件。"
                             )
                     else:
-                        logger.info(f"  目录 '{ACTIVE_AUTH_DIR}' 不存在。")
+                        logger.info(f"目录 '{ACTIVE_AUTH_DIR}' 不存在。")
                 except Exception as e_scan_active:
                     logger.warning(
                         f"  扫描 '{ACTIVE_AUTH_DIR}' 时发生错误: {e_scan_active}",
@@ -491,14 +491,14 @@ class Launcher:  # pragma: no cover
                                         flush=True,
                                     )
                             except ValueError:
-                                logger.info("   无效的输入。将不加载认证文件。")
+                                logger.info("无效的输入。将不加载认证文件。")
                                 print("   无效的输入。将不加载认证文件。", flush=True)
                         else:
-                            logger.info("   好的，不加载认证文件或超时。")
+                            logger.info("好的，不加载认证文件或超时。")
                             print("   好的，不加载认证文件或超时。", flush=True)
                         print("-" * 60, flush=True)
                 else:
-                    logger.info("   未找到认证文件。将使用浏览器当前状态。")
+                    logger.info("未找到认证文件。将使用浏览器当前状态。")
                     print("   未找到认证文件。将使用浏览器当前状态。", flush=True)
             elif (
                 not self.effective_active_auth_json_path
@@ -514,7 +514,7 @@ class Launcher:  # pragma: no cover
         if (
             self.args.helper
         ):  # 如果 args.helper 不是空字符串 (即 helper 功能已通过默认值或用户指定启用)
-            logger.info(f"  Helper 模式已启用，端点: {self.args.helper}")
+            logger.info(f"Helper 模式已启用，端点: {self.args.helper}")
             os.environ["HELPER_ENDPOINT"] = self.args.helper  # 设置端点环境变量
 
             if self.effective_active_auth_json_path:
@@ -570,7 +570,7 @@ class Launcher:  # pragma: no cover
                 if "HELPER_SAPISID" in os.environ:  # 清理
                     del os.environ["HELPER_SAPISID"]
         else:  # args.helper 是空字符串 (用户通过 --helper='' 禁用了 helper)
-            logger.info("  Helper 模式已通过 --helper='' 禁用。")
+            logger.info("Helper 模式已通过 --helper='' 禁用。")
             # 清理相关的环境变量
             if "HELPER_ENDPOINT" in os.environ:
                 del os.environ["HELPER_ENDPOINT"]
@@ -583,7 +583,7 @@ class Launcher:  # pragma: no cover
         if captured_ws_endpoint:
             os.environ["CAMOUFOX_WS_ENDPOINT"] = captured_ws_endpoint
         else:
-            logger.error("  严重逻辑错误: WebSocket 端点未捕获，但程序仍在继续。")
+            logger.error("严重逻辑错误: WebSocket 端点未捕获，但程序仍在继续。")
             sys.exit(1)
 
         os.environ["LAUNCH_MODE"] = self.final_launch_mode
@@ -608,7 +608,7 @@ class Launcher:  # pragma: no cover
         proxy_config = determine_proxy_configuration(self.args.internal_camoufox_proxy)
         if proxy_config["stream_proxy"]:
             os.environ["UNIFIED_PROXY_CONFIG"] = proxy_config["stream_proxy"]
-            logger.info(f"  设置统一代理配置: {proxy_config['source']}")
+            logger.info(f"设置统一代理配置: {proxy_config['source']}")
         elif "UNIFIED_PROXY_CONFIG" in os.environ:
             del os.environ["UNIFIED_PROXY_CONFIG"]
 
@@ -625,7 +625,7 @@ class Launcher:  # pragma: no cover
         elif "HOST_OS_FOR_SHORTCUT" in os.environ:
             del os.environ["HOST_OS_FOR_SHORTCUT"]
 
-        logger.info("  为 server.app 设置的环境变量:")
+        logger.info("为 server.app 设置的环境变量:")
         env_keys_to_log = [
             "CAMOUFOX_WS_ENDPOINT",
             "LAUNCH_MODE",
@@ -651,9 +651,9 @@ class Launcher:  # pragma: no cover
                     val_to_log = val_to_log[:40] + "..."
                 if key == "ACTIVE_AUTH_JSON_PATH":
                     val_to_log = os.path.basename(val_to_log)
-                logger.info(f"    {key}={val_to_log}")
+                logger.info(f"{key}={val_to_log}")
             else:
-                logger.info(f"    {key}= (未设置)")
+                logger.info(f"{key}= (未设置)")
 
     def _start_server(self):
         logger.info(
@@ -678,7 +678,7 @@ class Launcher:  # pragma: no cover
                 )
                 sys.exit(1)
         else:
-            logger.info("  --exit-on-auth-save 已启用。服务器将在认证保存后自动关闭。")
+            logger.info("--exit-on-auth-save 已启用。服务器将在认证保存后自动关闭。")
 
             server_config = uvicorn.Config(
                 app, host="0.0.0.0", port=self.args.server_port, log_config=None

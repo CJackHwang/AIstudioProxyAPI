@@ -12,8 +12,6 @@ from colorama import init as colorama_init
 from logging_utils.core.context import (
     request_id_var,
     source_var,
-    tree_depth_var,
-    tree_stack_var,
 )
 from logging_utils.core.rendering import (
     GridFormatter,
@@ -63,31 +61,18 @@ def log_context(
     silent: bool = False,
 ) -> Generator[None, None, None]:
     """
-    Context manager for hierarchical log grouping.
+    Context manager for source switching (simplified - no tree tracking).
 
     Usage:
         with log_context("Processing request", logger):
             logger.info("Step 1")
-            with log_context("Nested operation", logger):
-                logger.info("Nested step")
 
-    With silent=True, increases depth without logging a header:
+    With silent=True, no header is logged:
         with log_context("", logger, silent=True):
-            logger.info("This appears at depth 1")
+            logger.info("Some work")
     """
     if logger is None:
         logger = logging.getLogger()
-
-    # Get current depth and stack
-    try:
-        current_depth = tree_depth_var.get()
-    except LookupError:
-        current_depth = 0
-
-    try:
-        current_stack = list(tree_stack_var.get())
-    except LookupError:
-        current_stack = []
 
     # Handle optional source change
     source_token = None
@@ -95,22 +80,13 @@ def log_context(
         source_token = source_var.set(source)
 
     # Log the context entry (unless silent)
-    if not silent:
+    if not silent and name:
         logger.info(name)
-
-    # Increase depth and update stack (True = this level continues)
-    new_depth = current_depth + 1
-    new_stack = current_stack + [True]
-
-    depth_token = tree_depth_var.set(new_depth)
-    stack_token = tree_stack_var.set(new_stack)
 
     try:
         yield
     finally:
-        # Restore previous state
-        tree_depth_var.reset(depth_token)
-        tree_stack_var.reset(stack_token)
+        # Restore previous source
         if source_token is not None:
             source_var.reset(source_token)
 
@@ -131,8 +107,6 @@ def request_context(
     # Set context variables
     id_token = request_id_var.set(request_id)
     source_token = source_var.set(source)
-    depth_token = tree_depth_var.set(0)
-    stack_token = tree_stack_var.set([])
 
     try:
         yield
@@ -140,8 +114,6 @@ def request_context(
         # Reset context variables
         request_id_var.reset(id_token)
         source_var.reset(source_token)
-        tree_depth_var.reset(depth_token)
-        tree_stack_var.reset(stack_token)
 
 
 # =============================================================================

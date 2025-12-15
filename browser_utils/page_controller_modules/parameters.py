@@ -37,7 +37,7 @@ class ParameterController(BaseController):
         check_client_disconnected: Callable,
     ):
         """调整所有请求参数。"""
-        self.logger.info(" 开始调整所有请求参数...")
+        self.logger.info("开始调整所有请求参数...")
         await self._check_disconnect(
             check_client_disconnected, "Start Parameter Adjustment"
         )
@@ -90,7 +90,7 @@ class ParameterController(BaseController):
         if ENABLE_URL_CONTEXT:
             await self._open_url_content(check_client_disconnected)
         else:
-            self.logger.info(" URL Context 功能已禁用，跳过调整。")
+            self.logger.info("URL Context 功能已禁用，跳过调整。")
 
         # 调整"思考预算" - handled by ThinkingController but called here to maintain flow?
         # Ideally adjust_parameters should coordinate, but if we split, we need to ensure method availability.
@@ -305,7 +305,7 @@ class ParameterController(BaseController):
                         )
 
             except (ValueError, TypeError) as ve:
-                self.logger.error(f" 转换最大输出 Tokens 值时出错: {ve}。清除缓存。")
+                self.logger.error(f"转换最大输出 Tokens 值时出错: {ve}。清除缓存。")
                 page_params_cache.pop("max_output_tokens", None)
                 from browser_utils.operations import save_error_snapshot
 
@@ -313,7 +313,7 @@ class ParameterController(BaseController):
             except Exception as e:
                 if isinstance(e, asyncio.CancelledError):
                     raise
-                self.logger.error(f" 调整最大输出 Tokens 时出错: {e}。清除缓存。")
+                self.logger.error(f"调整最大输出 Tokens 时出错: {e}。清除缓存。")
                 page_params_cache.pop("max_output_tokens", None)
                 from browser_utils.operations import save_error_snapshot
 
@@ -347,12 +347,12 @@ class ParameterController(BaseController):
                         f" 找到移除按钮但 aria-label 格式不匹配: {label}"
                     )
 
-            self.logger.info(f" 当前页面读取到的停止序列: {current_stops}")
+            self.logger.info(f"当前页面读取到的停止序列: {current_stops}")
             return current_stops
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self.logger.warning(f" 读取当前停止序列失败: {e}")
+            self.logger.warning(f"读取当前停止序列失败: {e}")
             return set()
 
     async def _adjust_stop_sequences(
@@ -538,14 +538,14 @@ class ParameterController(BaseController):
                 self.logger.info(f"Top P: {clamped_top_p} (Matches page).")
 
         except (ValueError, TypeError) as ve:
-            self.logger.error(f" 转换 Top P 值时出错: {ve}")
+            self.logger.error(f"转换 Top P 值时出错: {ve}")
             from browser_utils.operations import save_error_snapshot
 
             await save_error_snapshot(f"top_p_value_error_{self.req_id}")
         except Exception as e:
             if isinstance(e, asyncio.CancelledError):
                 raise
-            self.logger.error(f" 调整 Top P 时出错: {e}")
+            self.logger.error(f"调整 Top P 时出错: {e}")
             from browser_utils.operations import save_error_snapshot
 
             await save_error_snapshot(f"top_p_error_{self.req_id}")
@@ -554,7 +554,7 @@ class ParameterController(BaseController):
 
     async def _ensure_tools_panel_expanded(self, check_client_disconnected: Callable):
         """确保包含高级工具（URL上下文、思考预算等）的面板是展开的。"""
-        self.logger.info(" 检查并确保工具面板已展开...")
+        self.logger.info("检查并确保工具面板已展开...")
         try:
             collapse_tools_locator = self.page.locator(
                 'button[aria-label="Expand or collapse tools"]'
@@ -567,7 +567,7 @@ class ParameterController(BaseController):
             )
 
             if class_string and "expanded" not in class_string.split():
-                self.logger.info(" 工具面板未展开，正在点击以展开...")
+                self.logger.info("工具面板未展开，正在点击以展开...")
                 await collapse_tools_locator.click(timeout=CLICK_TIMEOUT_MS)
                 await self._check_disconnect(
                     check_client_disconnected, "展开工具面板后"
@@ -576,13 +576,13 @@ class ParameterController(BaseController):
                 await expect_async(grandparent_locator).to_have_class(
                     re.compile(r".*expanded.*"), timeout=5000
                 )
-                self.logger.info(" 工具面板已成功展开。")
+                self.logger.info("工具面板已成功展开。")
             else:
-                self.logger.info(" 工具面板已处于展开状态。")
+                self.logger.info("工具面板已处于展开状态。")
         except Exception as e:
             if isinstance(e, asyncio.CancelledError):
                 raise
-            self.logger.error(f" 展开工具面板时发生错误: {e}")
+            self.logger.error(f"展开工具面板时发生错误: {e}")
             # 即使出错，也继续尝试执行后续操作，但记录错误
             if isinstance(e, ClientDisconnectedError):
                 raise
@@ -590,24 +590,24 @@ class ParameterController(BaseController):
     async def _open_url_content(self, check_client_disconnected: Callable):
         """仅负责打开 URL Context 开关，前提是面板已展开。"""
         try:
-            self.logger.info(" 检查并启用 URL Context 开关...")
+            self.logger.info("检查并启用 URL Context 开关...")
             use_url_content_selector = self.page.locator(USE_URL_CONTEXT_SELECTOR)
             await expect_async(use_url_content_selector).to_be_visible(timeout=5000)
 
             is_checked = await use_url_content_selector.get_attribute("aria-checked")
             if "false" == is_checked:
-                self.logger.info(" URL Context 开关未开启，正在点击以开启...")
+                self.logger.info("URL Context 开关未开启，正在点击以开启...")
                 await use_url_content_selector.click(timeout=CLICK_TIMEOUT_MS)
                 await self._check_disconnect(
                     check_client_disconnected, "点击URLCONTEXT后"
                 )
-                self.logger.info(" URL Context 开关已点击。")
+                self.logger.info("URL Context 开关已点击。")
             else:
-                self.logger.info(" URL Context 开关已处于开启状态。")
+                self.logger.info("URL Context 开关已处于开启状态。")
         except Exception as e:
             if isinstance(e, asyncio.CancelledError):
                 raise
-            self.logger.error(f" 操作 USE_URL_CONTEXT_SELECTOR 时发生错误:{e}。")
+            self.logger.error(f"操作 USE_URL_CONTEXT_SELECTOR 时发生错误:{e}。")
             if isinstance(e, ClientDisconnectedError):
                 raise
 

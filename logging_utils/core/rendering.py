@@ -14,11 +14,8 @@ from colorama import Fore, Style
 
 from .constants import SOURCE_MAP, Colors, Columns
 from .context import (
-    is_last_in_context_var,
     request_id_var,
     source_var,
-    tree_depth_var,
-    tree_stack_var,
 )
 
 
@@ -33,64 +30,6 @@ def normalize_source(source: str) -> str:
             return map_val
     # Default: first 5 chars, uppercase, padded
     return source[:5].upper().ljust(5)
-
-
-# =============================================================================
-# Tree Structure Builder
-# =============================================================================
-
-
-class TreeBuilder:
-    """Builds ASCII tree structure for hierarchical logging."""
-
-    # Unicode box-drawing characters for cleaner look
-    PIPE = "\u2502"  # │
-    BRANCH = "\u251c\u2500"  # ├─
-    LAST_BRANCH = "\u2514\u2500"  # └─
-    SPACE = " "
-
-    @classmethod
-    def get_prefix(cls) -> str:
-        """Generate tree prefix for current depth and context."""
-        try:
-            depth = tree_depth_var.get()
-        except LookupError:
-            depth = 0
-
-        if depth == 0:
-            return ""
-
-        try:
-            stack = tree_stack_var.get()
-        except LookupError:
-            stack = []
-
-        try:
-            is_last = is_last_in_context_var.get()
-        except LookupError:
-            is_last = False
-
-        # Special case: Depth 1 is just a pipe (no branch)
-        if depth == 1:
-            return f"{Colors.TREE}{cls.PIPE} {Colors.RESET}"
-
-        prefix_parts: List[str] = []
-
-        # Build prefix based on stack (whether parent levels continue)
-        for i in range(min(depth - 1, len(stack))):
-            if i < len(stack) and stack[i]:
-                prefix_parts.append(f"{cls.PIPE}  ")
-            else:
-                prefix_parts.append("   ")
-
-        # Add the current level's branch character (depth >= 2)
-        if is_last:
-            prefix_parts.append(f"{cls.LAST_BRANCH} ")
-        else:
-            prefix_parts.append(f"{cls.BRANCH} ")
-
-        result = "".join(prefix_parts)
-        return f"{Colors.TREE}{result}{Colors.RESET}"
 
 
 # =============================================================================
@@ -330,23 +269,21 @@ class GridFormatter(logging.Formatter):
     """
     Fixed-width grid formatter with semantic highlighting and burst suppression.
 
-    Format: TIME | LVL | SOURCE | ID | TREE | MESSAGE
+    Format: TIME | LVL | SOURCE | ID | MESSAGE
 
     Example output:
     22:47:51.690 INF API   y74ebn9 Received /v1/chat/completions request
-    22:47:51.692 INF WORKR y74ebn9 │ Processing request logic...
-    22:47:51.695 INF WORKR y74ebn9 │ ├─ UI State Validation
-    22:47:51.700 INF PROXY         │ └─ Sniff HTTPS requests (x5)
+    22:47:51.692 INF WORKR y74ebn9 Processing request logic...
+    22:47:51.695 INF PROXY         Sniff HTTPS requests (x5)
     """
 
     def __init__(
         self,
-        show_tree: bool = True,
         colorize: bool = True,
         burst_suppression: bool = True,
+        show_tree: bool = True,  # Deprecated, kept for compatibility
     ):
         super().__init__()
-        self.show_tree = show_tree
         self.colorize = colorize
         self.burst_suppression = burst_suppression
 
@@ -399,12 +336,6 @@ class GridFormatter(logging.Formatter):
         else:
             id_col = id_display
 
-        # Column 5: Tree prefix
-        if self.show_tree:
-            tree_prefix = TreeBuilder.get_prefix()
-        else:
-            tree_prefix = ""
-
         # Column 6: Message with semantic highlighting
         message = record.getMessage()
 
@@ -417,7 +348,7 @@ class GridFormatter(logging.Formatter):
             message = SemanticHighlighter.highlight(message)
 
         # Combine all columns
-        line = f"{time_col} {level_col} {source_col} {id_col} {tree_prefix}{message}"
+        line = f"{time_col} {level_col} {source_col} {id_col} {message}"
 
         # Apply burst suppression
         if self.burst_suppression:
