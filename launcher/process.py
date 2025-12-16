@@ -121,13 +121,13 @@ class CamoufoxProcessManager:
 
         try:
             logger.info(
-                f"  将执行 Camoufox 内部启动命令: {' '.join(camoufox_internal_cmd_args)}"
+                f"将执行 Camoufox 内部启动命令: {' '.join(camoufox_internal_cmd_args)}"
             )
             self.camoufox_proc = subprocess.Popen(
                 camoufox_internal_cmd_args, **camoufox_popen_kwargs
             )
             logger.info(
-                f"  Camoufox 内部进程已启动 (PID: {self.camoufox_proc.pid})。正在等待 WebSocket 端点输出 (最长 {ENDPOINT_CAPTURE_TIMEOUT} 秒)..."
+                f"Camoufox 内部进程已启动 (PID: {self.camoufox_proc.pid})。正在等待 WebSocket 端点输出 (最长 {ENDPOINT_CAPTURE_TIMEOUT} 秒)..."
             )
 
             camoufox_output_q = queue.Queue()
@@ -190,7 +190,7 @@ class CamoufoxProcessManager:
                     if ws_match:
                         self.captured_ws_endpoint = ws_match.group(1)
                         logger.info(
-                            f"  成功从 Camoufox 内部进程捕获到 WebSocket 端点: {self.captured_ws_endpoint[:40]}..."
+                            f"成功从 Camoufox 内部进程捕获到 WebSocket 端点: {self.captured_ws_endpoint[:40]}..."
                         )
                         break
                 except queue.Empty:

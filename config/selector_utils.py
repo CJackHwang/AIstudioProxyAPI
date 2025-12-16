@@ -68,7 +68,7 @@ async def find_first_visible_locator(
         try:
             locator = page.locator(selector)
             await expect_async(locator).to_be_visible(timeout=timeout_per_selector)
-            logger.debug(f"   {description}: 选择器 '{selector}' 元素可见")
+            logger.debug(f"{description}: 选择器 '{selector}' 元素可见")
             return locator, selector
         except asyncio.CancelledError:
             raise
@@ -76,7 +76,7 @@ async def find_first_visible_locator(
             # 元素不可见或超时，继续尝试下一个
             continue
 
-    logger.warning(f"   {description}: 所有选择器均未找到可见元素")
+    logger.warning(f"{description}: 所有选择器均未找到可见元素")
     return None, None
 
 

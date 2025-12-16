@@ -82,7 +82,7 @@ class ThinkingController(BaseController):
         has_main_toggle = self._model_has_main_thinking_toggle(model_id_to_use)
         if has_main_toggle:
             self.logger.info(
-                f" 开始设置主思考开关到: {'开启' if desired_enabled else '关闭'}"
+                f"开始设置主思考开关到: {'开启' if desired_enabled else '关闭'}"
             )
             await self._control_thinking_mode_toggle(
                 should_be_enabled=desired_enabled,
@@ -99,7 +99,7 @@ class ThinkingController(BaseController):
             # 这避免了尝试操作不可见元素导致的 5 秒超时
             if has_main_toggle:
                 self.logger.info(
-                    " Flash 模型已关闭主思考开关，跳过预算开关操作（预算开关已隐藏）"
+                    "Flash 模型已关闭主思考开关，跳过预算开关操作（预算开关已隐藏）"
                 )
                 return
             # 若关闭思考，则确保预算开关关闭（兼容旧UI）- 仅适用于非 Flash 模型（如 gemini-2.5-pro）
@@ -268,7 +268,7 @@ class ThinkingController(BaseController):
                 self.logger.info(f"已设置 Thinking Level 为 {level}")
             else:
                 self.logger.warning(
-                    f" Thinking Level 验证失败，页面值: {value_text}, 期望: {level}"
+                    f"Thinking Level 验证失败，页面值: {value_text}, 期望: {level}"
                 )
         except Exception as e:
             if isinstance(e, asyncio.CancelledError):
@@ -382,7 +382,7 @@ class ThinkingController(BaseController):
                         page_max_val = None
                     if page_max_val is not None and page_max_val < adjusted_budget:
                         self.logger.warning(
-                            f" 页面最大预算为 {page_max_val}，请求的预算 {adjusted_budget} 已调整为 {page_max_val}"
+                            f"页面最大预算为 {page_max_val}，请求的预算 {adjusted_budget} 已调整为 {page_max_val}"
                         )
                         try:
                             await self.page.evaluate(
@@ -414,7 +414,7 @@ class ThinkingController(BaseController):
                             pass
                     else:
                         self.logger.warning(
-                            f" 思考预算更新后验证失败。页面显示: {new_value_str}, 期望: {adjusted_budget}"
+                            f"思考预算更新后验证失败。页面显示: {new_value_str}, 期望: {adjusted_budget}"
                         )
 
         except Exception as e:
@@ -439,7 +439,7 @@ class ThinkingController(BaseController):
         """
         toggle_selector = ENABLE_THINKING_MODE_TOGGLE_SELECTOR
         self.logger.info(
-            f" 控制主思考开关，期望状态: {'开启' if should_be_enabled else '关闭'}..."
+            f"控制主思考开关，期望状态: {'开启' if should_be_enabled else '关闭'}..."
         )
 
         try:
@@ -451,13 +451,13 @@ class ThinkingController(BaseController):
                 if not should_be_enabled:
                     # Trying to disable on a model without thinking toggle - just skip
                     self.logger.info(
-                        " 主思考开关不存在（当前模型不支持思考模式），无需关闭。"
+                        "主思考开关不存在（当前模型不支持思考模式），无需关闭。"
                     )
                     return True
                 else:
                     # User wants to enable but toggle doesn't exist
                     self.logger.warning(
-                        " 主思考开关不存在（当前模型可能不支持思考模式），无法开启。"
+                        "主思考开关不存在（当前模型可能不支持思考模式），无法开启。"
                     )
                     return False
 
@@ -475,7 +475,7 @@ class ThinkingController(BaseController):
             is_checked_str = await toggle_locator.get_attribute("aria-checked")
             current_state_is_enabled = is_checked_str == "true"
             self.logger.info(
-                f" 主思考开关当前状态: {is_checked_str} (是否开启: {current_state_is_enabled})"
+                f"主思考开关当前状态: {is_checked_str} (是否开启: {current_state_is_enabled})"
             )
 
             if current_state_is_enabled != should_be_enabled:
@@ -514,12 +514,12 @@ class ThinkingController(BaseController):
 
                 if new_state_is_enabled == should_be_enabled:
                     self.logger.info(
-                        f" 主思考开关已成功{action}。新状态: {new_state_str}"
+                        f"主思考开关已成功{action}。新状态: {new_state_str}"
                     )
                     return True
                 else:
                     self.logger.warning(
-                        f" 主思考开关{action}后验证失败。期望: {should_be_enabled}, 实际: {new_state_str}"
+                        f"主思考开关{action}后验证失败。期望: {should_be_enabled}, 实际: {new_state_str}"
                     )
                     return False
             else:
@@ -528,7 +528,7 @@ class ThinkingController(BaseController):
 
         except TimeoutError:
             self.logger.warning(
-                " 主思考开关元素未找到或不可见（当前模型可能不支持思考模式）"
+                "主思考开关元素未找到或不可见（当前模型可能不支持思考模式）"
             )
             return False
         except Exception as e:
@@ -549,7 +549,7 @@ class ThinkingController(BaseController):
         """
         toggle_selector = SET_THINKING_BUDGET_TOGGLE_SELECTOR
         self.logger.info(
-            f" 控制 'Thinking Budget' 开关，期望状态: {'选中' if should_be_checked else '未选中'}..."
+            f"控制 'Thinking Budget' 开关，期望状态: {'选中' if should_be_checked else '未选中'}..."
         )
 
         try:
@@ -560,14 +560,12 @@ class ThinkingController(BaseController):
             if element_count == 0:
                 if not should_be_checked:
                     # Trying to disable on a model without budget toggle - just skip
-                    self.logger.info(
-                        " 思考预算开关不存在（当前模型不支持），无需禁用。"
-                    )
+                    self.logger.info("思考预算开关不存在（当前模型不支持），无需禁用。")
                     return
                 else:
                     # User wants to enable but toggle doesn't exist
                     self.logger.warning(
-                        " 思考预算开关不存在（当前模型可能不支持），无法启用。"
+                        "思考预算开关不存在（当前模型可能不支持），无法启用。"
                     )
                     return
 
@@ -585,13 +583,13 @@ class ThinkingController(BaseController):
             is_checked_str = await toggle_locator.get_attribute("aria-checked")
             current_state_is_checked = is_checked_str == "true"
             self.logger.info(
-                f" 思考预算开关当前 'aria-checked' 状态: {is_checked_str} (当前是否选中: {current_state_is_checked})"
+                f"思考预算开关当前 'aria-checked' 状态: {is_checked_str} (当前是否选中: {current_state_is_checked})"
             )
 
             if current_state_is_checked != should_be_checked:
                 action = "启用" if should_be_checked else "禁用"
                 self.logger.info(
-                    f" 思考预算开关当前状态与期望不符，正在点击以{action}..."
+                    f"思考预算开关当前状态与期望不符，正在点击以{action}..."
                 )
                 try:
                     await toggle_locator.click(timeout=CLICK_TIMEOUT_MS)
@@ -625,11 +623,11 @@ class ThinkingController(BaseController):
 
                 if new_state_is_checked == should_be_checked:
                     self.logger.info(
-                        f" 'Thinking Budget' 开关已成功{action}。新状态: {new_state_str}"
+                        f"'Thinking Budget' 开关已成功{action}。新状态: {new_state_str}"
                     )
                 else:
                     self.logger.warning(
-                        f" 'Thinking Budget' 开关{action}后验证失败。期望状态: '{should_be_checked}', 实际状态: '{new_state_str}'"
+                        f"'Thinking Budget' 开关{action}后验证失败。期望状态: '{should_be_checked}', 实际状态: '{new_state_str}'"
                     )
             else:
                 self.logger.info("'Thinking Budget' 开关已处于期望状态，无需操作。")

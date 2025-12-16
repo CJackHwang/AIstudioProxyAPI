@@ -62,7 +62,7 @@ async def _verify_ui_state_settings(page: AsyncPage, req_id: str = "unknown") ->
             }
 
             logger.info(
-                f" UI状态验证结果: isAdvancedOpen={is_advanced_open}, areToolsOpen={are_tools_open} (期望: True), needsUpdate={needs_update}"
+                f"UI状态验证结果: isAdvancedOpen={is_advanced_open}, areToolsOpen={are_tools_open} (期望: True), needsUpdate={needs_update}"
             )
             return result
 
@@ -195,7 +195,7 @@ async def _verify_and_apply_ui_state(page: AsyncPage, req_id: str = "unknown") -
         state = await _verify_ui_state_settings(page, req_id)
 
         logger.info(
-            f" 当前UI状态: exists={state['exists']}, isAdvancedOpen={state['isAdvancedOpen']}, areToolsOpen={state['areToolsOpen']}, needsUpdate={state['needsUpdate']}"
+            f"当前UI状态: exists={state['exists']}, isAdvancedOpen={state['isAdvancedOpen']}, areToolsOpen={state['areToolsOpen']}, needsUpdate={state['needsUpdate']}"
         )
 
         if state["needsUpdate"]:

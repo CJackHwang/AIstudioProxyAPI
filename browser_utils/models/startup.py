@@ -62,7 +62,7 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
                             -1
                         ]
                         logger.info(
-                            f"   localStorage 有效且UI状态正确。初始模型 ID 从 localStorage 设置为: {state.current_ai_studio_model_id}"
+                            f"localStorage 有效且UI状态正确。初始模型 ID 从 localStorage 设置为: {state.current_ai_studio_model_id}"
                         )
             except json.JSONDecodeError:
                 needs_reload_and_storage_update = True
@@ -74,19 +74,19 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
         if needs_reload_and_storage_update:
             logger.info(f"执行刷新和存储更新流程，原因: {reason_for_reload}")
             logger.info(
-                "   步骤 1: 调用 _set_model_from_page_display(set_storage=True) 更新 localStorage 和全局模型 ID..."
+                "步骤 1: 调用 _set_model_from_page_display(set_storage=True) 更新 localStorage 和全局模型 ID..."
             )
             await _set_model_from_page_display(page, set_storage=True)
 
             current_page_url = page.url
             logger.info(
-                f"   步骤 2: 重新加载页面 ({current_page_url}) 以应用 isAdvancedOpen=true..."
+                f"步骤 2: 重新加载页面 ({current_page_url}) 以应用 isAdvancedOpen=true..."
             )
             max_retries = 3
             for attempt in range(max_retries):
                 try:
                     logger.info(
-                        f"   尝试重新加载页面 (第 {attempt + 1}/{max_retries} 次): {current_page_url}"
+                        f"尝试重新加载页面 (第 {attempt + 1}/{max_retries} 次): {current_page_url}"
                     )
                     await page.goto(
                         current_page_url, wait_until="domcontentloaded", timeout=40000
@@ -111,14 +111,14 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
                     raise
                 except Exception as reload_err:
                     logger.warning(
-                        f"   页面重新加载尝试 {attempt + 1}/{max_retries} 失败: {reload_err}"
+                        f"页面重新加载尝试 {attempt + 1}/{max_retries} 失败: {reload_err}"
                     )
                     if attempt < max_retries - 1:
                         logger.info("将在5秒后重试...")
                         await asyncio.sleep(5)
                     else:
                         logger.error(
-                            f"   页面重新加载在 {max_retries} 次尝试后最终失败: {reload_err}. 后续模型状态可能不准确。",
+                            f"页面重新加载在 {max_retries} 次尝试后最终失败: {reload_err}. 后续模型状态可能不准确。",
                             exc_info=True,
                         )
                         from browser_utils.operations import save_error_snapshot
@@ -128,15 +128,15 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
                         )
 
             logger.info(
-                "   步骤 3: 重新加载后，再次调用 _set_model_from_page_display(set_storage=False) 以同步全局模型 ID..."
+                "步骤 3: 重新加载后，再次调用 _set_model_from_page_display(set_storage=False) 以同步全局模型 ID..."
             )
             await _set_model_from_page_display(page, set_storage=False)
             logger.info(
-                f"   刷新和存储更新流程完成。最终全局模型 ID: {state.current_ai_studio_model_id}"
+                f"刷新和存储更新流程完成。最终全局模型 ID: {state.current_ai_studio_model_id}"
             )
         else:
             logger.info(
-                "   localStorage 状态良好 (isAdvancedOpen=true, promptModel有效)，无需刷新页面。"
+                "localStorage 状态良好 (isAdvancedOpen=true, promptModel有效)，无需刷新页面。"
             )
     except asyncio.CancelledError:
         raise
@@ -147,7 +147,7 @@ async def _handle_initial_model_state_and_storage(page: AsyncPage):
         )
         try:
             logger.warning(
-                "   由于发生错误，尝试回退仅从页面显示设置全局模型 ID (不写入localStorage)..."
+                "由于发生错误，尝试回退仅从页面显示设置全局模型 ID (不写入localStorage)..."
             )
             await _set_model_from_page_display(page, set_storage=False)
         except asyncio.CancelledError:
@@ -172,7 +172,7 @@ async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = Fals
         )
         displayed_model_name = displayed_model_name_from_page_raw.strip()
         logger.info(
-            f"   页面当前显示模型名称 (原始: '{displayed_model_name_from_page_raw}', 清理后: '{displayed_model_name}')"
+            f"页面当前显示模型名称 (原始: '{displayed_model_name_from_page_raw}', 清理后: '{displayed_model_name}')"
         )
 
         found_model_id_from_display = None
@@ -190,17 +190,15 @@ async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = Fals
         if state.current_ai_studio_model_id != new_model_value:
             state.current_ai_studio_model_id = new_model_value
             logger.info(
-                f"   全局 current_ai_studio_model_id 已更新为: {state.current_ai_studio_model_id}"
+                f"全局 current_ai_studio_model_id 已更新为: {state.current_ai_studio_model_id}"
             )
         else:
             logger.info(
-                f"   全局 current_ai_studio_model_id ('{state.current_ai_studio_model_id}') 与从页面获取的值一致，未更改。"
+                f"全局 current_ai_studio_model_id ('{state.current_ai_studio_model_id}') 与从页面获取的值一致，未更改。"
             )
 
         if set_storage:
-            logger.info(
-                "   准备为页面状态设置 localStorage (确保 isAdvancedOpen=true)..."
-            )
+            logger.info("准备为页面状态设置 localStorage (确保 isAdvancedOpen=true)...")
             existing_prefs_for_update_str = await page.evaluate(
                 "() => localStorage.getItem('aiStudioUserPreference')"
             )
@@ -210,7 +208,7 @@ async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = Fals
                     prefs_to_set = json.loads(existing_prefs_for_update_str)
                 except json.JSONDecodeError:
                     logger.warning(
-                        "   解析现有 localStorage.aiStudioUserPreference 失败，将创建新的偏好设置。"
+                        "解析现有 localStorage.aiStudioUserPreference 失败，将创建新的偏好设置。"
                     )
 
             # 使用新的强制设置功能
@@ -230,11 +228,11 @@ async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = Fals
                 new_prompt_model_path = f"models/{found_model_id_from_display}"
                 prefs_to_set["promptModel"] = new_prompt_model_path
                 logger.info(
-                    f"     设置 promptModel 为: {new_prompt_model_path} (基于找到的ID)"
+                    f"设置 promptModel 为: {new_prompt_model_path} (基于找到的ID)"
                 )
             elif "promptModel" not in prefs_to_set:
                 logger.warning(
-                    f"     无法从页面显示 '{displayed_model_name}' 找到模型ID，且 localStorage 中无现有 promptModel。promptModel 将不会被主动设置以避免潜在问题。"
+                    f"无法从页面显示 '{displayed_model_name}' 找到模型ID，且 localStorage 中无现有 promptModel。promptModel 将不会被主动设置以避免潜在问题。"
                 )
 
             default_keys_if_missing = {
@@ -259,7 +257,7 @@ async def _set_model_from_page_display(page: AsyncPage, set_storage: bool = Fals
                 json.dumps(prefs_to_set),
             )
             logger.info(
-                f"   localStorage.aiStudioUserPreference 已更新。isAdvancedOpen: {prefs_to_set.get('isAdvancedOpen')}, areToolsOpen: {prefs_to_set.get('areToolsOpen')} (期望: True), promptModel: '{prefs_to_set.get('promptModel', '未设置/保留原样')}'。"
+                f"localStorage.aiStudioUserPreference 已更新。isAdvancedOpen: {prefs_to_set.get('isAdvancedOpen')}, areToolsOpen: {prefs_to_set.get('areToolsOpen')} (期望: True), promptModel: '{prefs_to_set.get('promptModel', '未设置/保留原样')}'。"
             )
     except asyncio.CancelledError:
         raise

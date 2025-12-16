@@ -74,7 +74,7 @@ def run_internal_camoufox(args, launch_server, DefaultAddons):
             sys.exit(1)
 
         print(
-            f"  传递给 launch_server 的参数: {launch_args_for_internal_camoufox}",
+            f"传递给 launch_server 的参数: {launch_args_for_internal_camoufox}",
             flush=True,
         )
 

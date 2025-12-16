@@ -170,7 +170,7 @@ def log_object(
     formatted = format_object(obj, indent=1)
     for line in formatted.split("\n"):
         if line.strip():
-            logger.log(level, f"  {line}")
+            logger.log(level, line)
 
 
 # =============================================================================

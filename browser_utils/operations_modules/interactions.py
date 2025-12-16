@@ -47,17 +47,13 @@ async def get_raw_text_content(
                 raw_text = await pre_element.inner_text(timeout=500)
             except PlaywrightAsyncError as pre_err:
                 if DEBUG_LOGS_ENABLED:
-                    logger.debug(
-                        f" (获取原始文本) 获取 pre 元素内部文本失败: {pre_err}"
-                    )
+                    logger.debug(f"(获取原始文本) 获取 pre 元素内部文本失败: {pre_err}")
         else:
             try:
                 raw_text = await response_element.inner_text(timeout=500)
             except PlaywrightAsyncError as e_parent:
                 if DEBUG_LOGS_ENABLED:
-                    logger.debug(
-                        f" (获取原始文本) 获取响应元素内部文本失败: {e_parent}"
-                    )
+                    logger.debug(f"(获取原始文本) 获取响应元素内部文本失败: {e_parent}")
     except PlaywrightAsyncError as e_parent:
         if DEBUG_LOGS_ENABLED:
             logger.debug(f"(获取原始文本) 响应元素未准备好: {e_parent}")
@@ -70,7 +66,7 @@ async def get_raw_text_content(
         if DEBUG_LOGS_ENABLED:
             preview = raw_text[:100].replace("\n", "\\n")
             logger.debug(
-                f" (获取原始文本) 文本已更新，长度: {len(raw_text)}，预览: '{preview}...'"
+                f"(获取原始文本) 文本已更新，长度: {len(raw_text)}，预览: '{preview}...'"
             )
     return raw_text
 
@@ -234,7 +230,7 @@ async def get_response_via_edit_button(
     except asyncio.CancelledError:
         raise
     except Exception:
-        logger.exception(" 通过编辑按钮获取响应过程中发生意外错误")
+        logger.exception("通过编辑按钮获取响应过程中发生意外错误")
         await save_error_snapshot(f"edit_response_unexpected_error_{req_id}")
         return None
 
@@ -337,7 +333,7 @@ async def get_response_via_copy_button(
     except asyncio.CancelledError:
         raise
     except Exception:
-        logger.exception(" 复制响应过程中发生意外错误")
+        logger.exception("复制响应过程中发生意外错误")
         await save_error_snapshot(f"copy_response_unexpected_error_{req_id}")
         return None
 
@@ -390,7 +386,7 @@ async def _wait_for_response_completion(
             )
         except TimeoutError:
             logger.warning(
-                " (WaitV3) 检查提交按钮是否禁用超时。为本次检查假定其未禁用。"
+                "(WaitV3) 检查提交按钮是否禁用超时。为本次检查假定其未禁用。"
             )
 
         try:
@@ -402,14 +398,14 @@ async def _wait_for_response_completion(
             consecutive_empty_input_submit_disabled_count += 1
             if DEBUG_LOGS_ENABLED:
                 logger.debug(
-                    f" (WaitV3) 主要条件满足: 输入框空，提交按钮禁用 (计数: {consecutive_empty_input_submit_disabled_count})。"
+                    f"(WaitV3) 主要条件满足: 输入框空，提交按钮禁用 (计数: {consecutive_empty_input_submit_disabled_count})。"
                 )
 
             # --- 最终确认: 编辑按钮可见 ---
             try:
                 if await edit_button_locator.is_visible(timeout=wait_timeout_ms_short):
                     logger.info(
-                        " (WaitV3) 响应完成: 输入框空，提交按钮禁用，编辑按钮可见。"
+                        "(WaitV3) 响应完成: 输入框空，提交按钮禁用，编辑按钮可见。"
                     )
                     return True  # 明确完成
             except TimeoutError:
@@ -426,7 +422,7 @@ async def _wait_for_response_completion(
                 consecutive_empty_input_submit_disabled_count >= 3
             ):  # 例如，大约 1.5秒 (3 * 0.5秒轮询)
                 logger.warning(
-                    f" (WaitV3) 响应可能已完成 (启发式): 输入框空，提交按钮禁用，但在 {consecutive_empty_input_submit_disabled_count} 次检查后编辑按钮仍未出现。假定完成。后续若内容获取失败，可能与此有关。"
+                    f"(WaitV3) 响应可能已完成 (启发式): 输入框空，提交按钮禁用，但在 {consecutive_empty_input_submit_disabled_count} 次检查后编辑按钮仍未出现。假定完成。后续若内容获取失败，可能与此有关。"
                 )
                 return True  # 启发式完成
         else:  # 主要条件 (输入框空 & 提交按钮禁用) 未满足
@@ -438,7 +434,7 @@ async def _wait_for_response_completion(
                 if not is_submit_disabled:
                     reasons.append("提交按钮非禁用")
                 logger.debug(
-                    f" (WaitV3) 主要条件未满足 ({', '.join(reasons)}). 继续轮询..."
+                    f"(WaitV3) 主要条件未满足 ({', '.join(reasons)}). 继续轮询..."
                 )
 
         await asyncio.sleep(0.5)  # 轮询间隔
@@ -457,7 +453,7 @@ async def _get_final_response_content(
         return response_content
 
     logger.warning(
-        " (Helper GetContent) 编辑按钮方法失败或返回空，回退到复制按钮方法..."
+        "(Helper GetContent) 编辑按钮方法失败或返回空，回退到复制按钮方法..."
     )
     response_content = await get_response_via_copy_button(
         page, req_id, check_client_disconnected

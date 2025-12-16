@@ -226,18 +226,18 @@ class Launcher:  # pragma: no cover
                         logger.info("输入为空或超时，取消创建新认证文件。")
                         break
                     else:
-                        print("  文件名包含无效字符，请重试。")
+                        print("文件名包含无效字符，请重试。")
 
                 if new_auth_filename:
                     self.args.auto_save_auth = True
                     self.args.save_auth_as = new_auth_filename
                     logger.info(
-                        f"  好的，登录成功后将自动保存认证文件为: {new_auth_filename}.json"
+                        f"好的，登录成功后将自动保存认证文件为: {new_auth_filename}.json"
                     )
                     # 在这种模式下，不应该加载任何现有的认证文件
                     if self.effective_active_auth_json_path:
                         logger.info(
-                            "  由于将创建新的认证文件，已清除先前加载的认证文件设置。"
+                            "由于将创建新的认证文件，已清除先前加载的认证文件设置。"
                         )
                         self.effective_active_auth_json_path = None
             else:
@@ -251,7 +251,7 @@ class Launcher:  # pragma: no cover
             logger.info("--- 检查 Xvfb (虚拟显示) 依赖 ---")
             if not shutil.which("Xvfb"):
                 logger.error(
-                    "  Xvfb 未找到。虚拟显示模式需要 Xvfb。请安装 (例如: sudo apt-get install xvfb) 后重试。"
+                    "Xvfb 未找到。虚拟显示模式需要 Xvfb。请安装 (例如: sudo apt-get install xvfb) 后重试。"
                 )
                 sys.exit(1)
             logger.info("Xvfb 已找到。")
@@ -265,12 +265,12 @@ class Launcher:  # pragma: no cover
         uvicorn_bind_host = "0.0.0.0"
         if is_port_in_use(server_target_port, host=uvicorn_bind_host):
             logger.warning(
-                f"  端口 {server_target_port} (主机 {uvicorn_bind_host}) 当前被占用。"
+                f"端口 {server_target_port} (主机 {uvicorn_bind_host}) 当前被占用。"
             )
             pids_on_port = find_pids_on_port(server_target_port)
             if pids_on_port:
                 logger.warning(
-                    f"     识别到以下进程 PID 可能占用了端口 {server_target_port}: {pids_on_port}"
+                    f"识别到以下进程 PID 可能占用了端口 {server_target_port}: {pids_on_port}"
                 )
                 if self.final_launch_mode == "debug":
                     sys.stderr.flush()
@@ -290,24 +290,22 @@ class Launcher:  # pragma: no cover
                             server_target_port, host=uvicorn_bind_host
                         ):
                             logger.info(
-                                f"     端口 {server_target_port} (主机 {uvicorn_bind_host}) 现在可用。"
+                                f"端口 {server_target_port} (主机 {uvicorn_bind_host}) 现在可用。"
                             )
                             port_is_available = True
                         else:
                             logger.error(
-                                f"     尝试终止后，端口 {server_target_port} (主机 {uvicorn_bind_host}) 仍然被占用。"
+                                f"尝试终止后，端口 {server_target_port} (主机 {uvicorn_bind_host}) 仍然被占用。"
                             )
                     else:
-                        logger.info(
-                            "     用户选择不自动终止或超时。将继续尝试启动服务器。"
-                        )
+                        logger.info("用户选择不自动终止或超时。将继续尝试启动服务器。")
                 else:
                     logger.error(
-                        "     无头模式下，不会尝试自动终止占用端口的进程。服务器启动可能会失败。"
+                        "无头模式下，不会尝试自动终止占用端口的进程。服务器启动可能会失败。"
                     )
             else:
                 logger.warning(
-                    f"     未能自动识别占用端口 {server_target_port} 的进程。服务器启动可能会失败。"
+                    f"未能自动识别占用端口 {server_target_port} 的进程。服务器启动可能会失败。"
                 )
 
             if not port_is_available:
@@ -316,14 +314,14 @@ class Launcher:  # pragma: no cover
                 )
         else:
             logger.info(
-                f"  端口 {server_target_port} (主机 {uvicorn_bind_host}) 当前可用。"
+                f"端口 {server_target_port} (主机 {uvicorn_bind_host}) 当前可用。"
             )
             port_is_available = True
 
     def _resolve_auth_file_path(self):
         if self.args.active_auth_json:
             logger.info(
-                f"  尝试使用 --active-auth-json 参数提供的路径: '{self.args.active_auth_json}'"
+                f"尝试使用 --active-auth-json 参数提供的路径: '{self.args.active_auth_json}'"
             )
             candidate_path = os.path.expanduser(self.args.active_auth_json)
 
@@ -365,7 +363,7 @@ class Launcher:  # pragma: no cover
 
             if self.effective_active_auth_json_path:
                 logger.info(
-                    f"  将使用通过 --active-auth-json 解析的认证文件: {self.effective_active_auth_json_path}"
+                    f"将使用通过 --active-auth-json 解析的认证文件: {self.effective_active_auth_json_path}"
                 )
             else:
                 logger.error(
@@ -380,7 +378,7 @@ class Launcher:  # pragma: no cover
             else:
                 # 对于无头模式，检查 active/ 目录中的默认认证文件
                 logger.info(
-                    f"  --active-auth-json 未提供。检查 '{ACTIVE_AUTH_DIR}' 中的默认认证文件..."
+                    f"--active-auth-json 未提供。检查 '{ACTIVE_AUTH_DIR}' 中的默认认证文件..."
                 )
                 try:
                     if os.path.exists(ACTIVE_AUTH_DIR):
@@ -397,17 +395,17 @@ class Launcher:  # pragma: no cover
                                 ACTIVE_AUTH_DIR, active_json_files[0]
                             )
                             logger.info(
-                                f"  将使用 '{ACTIVE_AUTH_DIR}' 中按名称排序的第一个JSON文件: {os.path.basename(self.effective_active_auth_json_path)}"
+                                f"将使用 '{ACTIVE_AUTH_DIR}' 中按名称排序的第一个JSON文件: {os.path.basename(self.effective_active_auth_json_path)}"
                             )
                         else:
                             logger.info(
-                                f"  目录 '{ACTIVE_AUTH_DIR}' 为空或不包含JSON文件。"
+                                f"目录 '{ACTIVE_AUTH_DIR}' 为空或不包含JSON文件。"
                             )
                     else:
                         logger.info(f"目录 '{ACTIVE_AUTH_DIR}' 不存在。")
                 except Exception as e_scan_active:
                     logger.warning(
-                        f"  扫描 '{ACTIVE_AUTH_DIR}' 时发生错误: {e_scan_active}",
+                        f"扫描 '{ACTIVE_AUTH_DIR}' 时发生错误: {e_scan_active}",
                         exc_info=True,
                     )
 
@@ -443,7 +441,7 @@ class Launcher:  # pragma: no cover
                                 )
                         except OSError as e:
                             logger.warning(
-                                f"   警告: 无法读取目录 '{profile_dir_path_str}': {e}"
+                                f"警告: 无法读取目录 '{profile_dir_path_str}': {e}"
                             )
 
                 if available_profiles:
@@ -453,18 +451,18 @@ class Launcher:  # pragma: no cover
                         selected_profile = available_profiles[0]
                         self.effective_active_auth_json_path = selected_profile["path"]
                         logger.info(
-                            f"   快速启动：自动选择第一个可用认证文件: {selected_profile['name']}"
+                            f"快速启动：自动选择第一个可用认证文件: {selected_profile['name']}"
                         )
                     else:
-                        print("-" * 60 + "\n   找到以下可用的认证文件:", flush=True)
+                        print("-" * 60 + "\n找到以下可用的认证文件:", flush=True)
                         for i, profile in enumerate(available_profiles):
-                            print(f"     {i + 1}: {profile['name']}", flush=True)
+                            print(f"{i + 1}: {profile['name']}", flush=True)
                         print(
-                            "     N: 不加载任何文件 (使用浏览器当前状态)\n" + "-" * 60,
+                            "N: 不加载任何文件 (使用浏览器当前状态)\n" + "-" * 60,
                             flush=True,
                         )
                         choice = input_with_timeout(
-                            f"   请选择要加载的认证文件编号 (输入 N 或直接回车则不加载, {self.args.auth_save_timeout}s超时): ",
+                            f"请选择要加载的认证文件编号 (输入 N 或直接回车则不加载, {self.args.auth_save_timeout}s超时): ",
                             self.args.auth_save_timeout,
                         )
                         if choice.strip().lower() not in ["n", ""]:
@@ -476,37 +474,37 @@ class Launcher:  # pragma: no cover
                                         selected_profile["path"]
                                     )
                                     logger.info(
-                                        f"   已选择加载认证文件: {selected_profile['name']}"
+                                        f"已选择加载认证文件: {selected_profile['name']}"
                                     )
                                     print(
-                                        f"   已选择加载: {selected_profile['name']}",
+                                        f"已选择加载: {selected_profile['name']}",
                                         flush=True,
                                     )
                                 else:
                                     logger.info(
-                                        "   无效的选择编号或超时。将不加载认证文件。"
+                                        "无效的选择编号或超时。将不加载认证文件。"
                                     )
                                     print(
-                                        "   无效的选择编号或超时。将不加载认证文件。",
+                                        "无效的选择编号或超时。将不加载认证文件。",
                                         flush=True,
                                     )
                             except ValueError:
                                 logger.info("无效的输入。将不加载认证文件。")
-                                print("   无效的输入。将不加载认证文件。", flush=True)
+                                print("无效的输入。将不加载认证文件。", flush=True)
                         else:
                             logger.info("好的，不加载认证文件或超时。")
-                            print("   好的，不加载认证文件或超时。", flush=True)
+                            print("好的，不加载认证文件或超时。", flush=True)
                         print("-" * 60, flush=True)
                 else:
                     logger.info("未找到认证文件。将使用浏览器当前状态。")
-                    print("   未找到认证文件。将使用浏览器当前状态。", flush=True)
+                    print("未找到认证文件。将使用浏览器当前状态。", flush=True)
             elif (
                 not self.effective_active_auth_json_path
                 and not self.args.auto_save_auth
             ):
                 # 对于无头模式，如果 --active-auth-json 未提供且 active/ 为空，则报错
                 logger.error(
-                    f"  {self.final_launch_mode} 模式错误: --active-auth-json 未提供，且活动认证目录 '{ACTIVE_AUTH_DIR}' 中未找到任何 '.json' 认证文件。请先在调试模式下保存一个或通过参数指定。"
+                    f"{self.final_launch_mode} 模式错误: --active-auth-json 未提供，且活动认证目录 '{ACTIVE_AUTH_DIR}' 中未找到任何 '.json' 认证文件。请先在调试模式下保存一个或通过参数指定。"
                 )
                 sys.exit(1)
 

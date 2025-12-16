@@ -73,7 +73,7 @@ class InputController(BaseController):
                     )
                 except Exception as autosize_err:
                     self.logger.debug(
-                        f" autosize wrapper update skipped: {autosize_err}"
+                        f"autosize wrapper update skipped: {autosize_err}"
                     )
             await self._check_disconnect(check_client_disconnected, "After Input Fill")
 
@@ -93,7 +93,7 @@ class InputController(BaseController):
             wait_timeout_ms_submit_enabled = SUBMIT_BUTTON_ENABLE_TIMEOUT_MS
             start_time = asyncio.get_event_loop().time()
             self.logger.info(
-                f" 等待发送按钮启用 (最大 {wait_timeout_ms_submit_enabled}ms)..."
+                f"等待发送按钮启用 (最大 {wait_timeout_ms_submit_enabled}ms)..."
             )
 
             try:
@@ -236,7 +236,7 @@ class InputController(BaseController):
                 if await input_loc.count() > 0:
                     await input_loc.set_input_files(files_list)
                     self.logger.info(
-                        f" 通过菜单项(Upload a file) 隐藏 input 设置文件成功: {len(files_list)} 个"
+                        f"通过菜单项(Upload a file) 隐藏 input 设置文件成功: {len(files_list)} 个"
                     )
                 else:
                     # 回退为原生文件选择器
@@ -245,7 +245,7 @@ class InputController(BaseController):
                     file_chooser = await fc_info.value
                     await file_chooser.set_files(files_list)
                     self.logger.info(
-                        f" 通过文件选择器设置文件成功: {len(files_list)} 个"
+                        f"通过文件选择器设置文件成功: {len(files_list)} 个"
                     )
             except Exception as e_set:
                 self.logger.error(f"设置文件失败: {e_set}")
@@ -312,7 +312,7 @@ class InputController(BaseController):
                 ):
                     await acknow_btn_locator.first.click()
                     self.logger.info(
-                        " 上传后对话框: 点击版权确认按钮 (aria-label 匹配)。"
+                        "上传后对话框: 点击版权确认按钮 (aria-label 匹配)。"
                     )
                     await asyncio.sleep(0.3)
             except Exception:
@@ -329,7 +329,7 @@ class InputController(BaseController):
                         self.logger.info("上传后对话框遮罩层已隐藏。")
                     except Exception:
                         self.logger.warning(
-                            " 上传后对话框遮罩层仍存在，后续提交可能被拦截。"
+                            "上传后对话框遮罩层仍存在，后续提交可能被拦截。"
                         )
             except Exception:
                 pass
@@ -405,7 +405,7 @@ class InputController(BaseController):
                         )
                         if is_disabled:
                             self.logger.info(
-                                " 验证方法2: 提交按钮已禁用，回车键提交成功"
+                                "验证方法2: 提交按钮已禁用，回车键提交成功"
                             )
                             submission_success = True
                     except Exception:
@@ -424,7 +424,7 @@ class InputController(BaseController):
                             is_vis = await last_container.is_visible(timeout=1000)
                             if is_vis:
                                 self.logger.info(
-                                    " 验证方法3: 检测到响应容器，回车键提交成功"
+                                    "验证方法3: 检测到响应容器，回车键提交成功"
                                 )
                                 submission_success = True
                     except Exception:
@@ -528,7 +528,7 @@ class InputController(BaseController):
                         )
                         if is_disabled:
                             self.logger.info(
-                                " 验证方法2: 提交按钮已禁用，组合键提交成功"
+                                "验证方法2: 提交按钮已禁用，组合键提交成功"
                             )
                             submission_success = True
                     except Exception:
@@ -544,7 +544,7 @@ class InputController(BaseController):
                             is_vis = await last_container.is_visible(timeout=1000)
                             if is_vis:
                                 self.logger.info(
-                                    " 验证方法3: 检测到响应容器，组合键提交成功"
+                                    "验证方法3: 检测到响应容器，组合键提交成功"
                                 )
                                 submission_success = True
                     except Exception:

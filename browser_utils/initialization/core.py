@@ -87,29 +87,29 @@ async def initialize_page_logic(  # pragma: no cover
                 raise RuntimeError(f"{launch_mode} 模式需要 ACTIVE_AUTH_JSON_PATH。")
         elif launch_mode == "debug":
             logger.info(
-                "   调试模式: 尝试从环境变量 ACTIVE_AUTH_JSON_PATH 加载认证文件..."
+                "调试模式: 尝试从环境变量 ACTIVE_AUTH_JSON_PATH 加载认证文件..."
             )
             auth_filepath_from_env = os.environ.get("ACTIVE_AUTH_JSON_PATH")
             if auth_filepath_from_env and os.path.exists(auth_filepath_from_env):
                 storage_state_path_to_use = auth_filepath_from_env
                 logger.info(
-                    f"   调试模式将使用的认证文件 (来自环境变量): {storage_state_path_to_use}"
+                    f"调试模式将使用的认证文件 (来自环境变量): {storage_state_path_to_use}"
                 )
             elif auth_filepath_from_env:
                 logger.warning(
-                    f"   调试模式下环境变量 ACTIVE_AUTH_JSON_PATH 指向的文件不存在: '{auth_filepath_from_env}'。不加载认证文件。"
+                    f"调试模式下环境变量 ACTIVE_AUTH_JSON_PATH 指向的文件不存在: '{auth_filepath_from_env}'。不加载认证文件。"
                 )
             else:
                 logger.info(
-                    "   调试模式下未通过环境变量提供认证文件。将使用浏览器当前状态。"
+                    "调试模式下未通过环境变量提供认证文件。将使用浏览器当前状态。"
                 )
         elif launch_mode == "direct_debug_no_browser":
             logger.info(
-                "   direct_debug_no_browser 模式：不加载 storage_state，不进行浏览器操作。"
+                "direct_debug_no_browser 模式：不加载 storage_state，不进行浏览器操作。"
             )
         else:
             logger.warning(
-                f"   警告: 未知的启动模式 '{launch_mode}'。不加载 storage_state。"
+                f"警告: 未知的启动模式 '{launch_mode}'。不加载 storage_state。"
             )
 
     try:
@@ -118,7 +118,7 @@ async def initialize_page_logic(  # pragma: no cover
         if storage_state_path_to_use:
             context_options["storage_state"] = storage_state_path_to_use
             logger.info(
-                f"   (使用 storage_state='{os.path.basename(storage_state_path_to_use)}')"
+                f"(使用 storage_state='{os.path.basename(storage_state_path_to_use)}')"
             )
         else:
             logger.info("(不使用 storage_state)")
@@ -129,7 +129,7 @@ async def initialize_page_logic(  # pragma: no cover
         if server.PLAYWRIGHT_PROXY_SETTINGS:
             context_options["proxy"] = server.PLAYWRIGHT_PROXY_SETTINGS
             logger.info(
-                f"   (浏览器上下文将使用代理: {server.PLAYWRIGHT_PROXY_SETTINGS['server']})"
+                f"(浏览器上下文将使用代理: {server.PLAYWRIGHT_PROXY_SETTINGS['server']})"
             )
         else:
             logger.info("(浏览器上下文不使用显式代理配置)")

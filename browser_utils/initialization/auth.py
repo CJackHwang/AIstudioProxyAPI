@@ -44,16 +44,16 @@ async def _save_auth_state(temp_context, filename: str):
     auth_save_path = os.path.join(SAVED_AUTH_DIR, filename)
 
     print("\n" + "=" * 50, flush=True)
-    print("   登录成功！将自动保存认证状态...", flush=True)
+    print("登录成功！将自动保存认证状态...", flush=True)
 
     try:
         await temp_context.storage_state(path=auth_save_path)
         logger.info(f"认证状态已保存到: {auth_save_path}")
-        print(f"   认证状态已保存到: {auth_save_path}", flush=True)
+        print(f"认证状态已保存到: {auth_save_path}", flush=True)
     except asyncio.CancelledError:
         raise
     except Exception as e:
         logger.error(f"保存认证状态失败: {e}", exc_info=True)
-        print(f"   保存认证状态失败: {e}", flush=True)
+        print(f"保存认证状态失败: {e}", flush=True)
 
     print("=" * 50 + "\n", flush=True)

@@ -501,7 +501,7 @@ async def _handle_model_list_response(response: Any):
                                 : min(3, len(state.parsed_model_list))
                             ]
                         ):
-                            log_output += f"  Model {i + 1}: ID={item.get('id')}, Name={item.get('display_name')}, Temp={item.get('default_temperature')}, MaxTokDef={item.get('default_max_output_tokens')}, MaxTokSup={item.get('supported_max_output_tokens')}, TopP={item.get('default_top_p')}\n"
+                            log_output += f"Model {i + 1}: ID={item.get('id')}, Name={item.get('display_name')}, Temp={item.get('default_temperature')}, MaxTokDef={item.get('default_max_output_tokens')}, MaxTokSup={item.get('supported_max_output_tokens')}, TopP={item.get('default_top_p')}\n"
                         logger.info(log_output)
                     if model_list_fetch_event and not model_list_fetch_event.is_set():
                         model_list_fetch_event.set()
