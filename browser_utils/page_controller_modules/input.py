@@ -203,18 +203,29 @@ class InputController(BaseController):
                     self.logger.warning(" 未能显示上传菜单面板。")
                     return False
 
-            # 仅使用 aria-label='Upload File' 的菜单项
+            # 使用 aria-label 或文本匹配 'Upload a file' / 'Upload File' 的菜单项
             try:
+                # 优先匹配新 UI: "Upload a file"
                 upload_btn = menu_container.locator(
-                    "div[role='menu'] button[role='menuitem'][aria-label='Upload File']"
+                    "div[role='menu'] button[role='menuitem'][aria-label='Upload a file']"
                 )
                 if await upload_btn.count() == 0:
-                    # 退化到按文本匹配 Upload File
+                    # 回退到旧 UI: "Upload File"
+                    upload_btn = menu_container.locator(
+                        "div[role='menu'] button[role='menuitem'][aria-label='Upload File']"
+                    )
+                if await upload_btn.count() == 0:
+                    # 退化到按文本匹配 (新 UI)
+                    upload_btn = menu_container.locator(
+                        "div[role='menu'] button[role='menuitem']:has-text('Upload a file')"
+                    )
+                if await upload_btn.count() == 0:
+                    # 退化到按文本匹配 (旧 UI)
                     upload_btn = menu_container.locator(
                         "div[role='menu'] button[role='menuitem']:has-text('Upload File')"
                     )
                 if await upload_btn.count() == 0:
-                    self.logger.warning(" 未找到 'Upload File' 菜单项。")
+                    self.logger.warning(" 未找到 'Upload a file' 或 'Upload File' 菜单项。")
                     return False
                 btn = upload_btn.first
                 await expect_async(btn).to_be_visible(timeout=2000)
@@ -223,7 +234,7 @@ class InputController(BaseController):
                 if await input_loc.count() > 0:
                     await input_loc.set_input_files(files_list)
                     self.logger.info(
-                        f" 通过菜单项(Upload File) 隐藏 input 设置文件成功: {len(files_list)} 个"
+                        f" 通过菜单项(Upload a file) 隐藏 input 设置文件成功: {len(files_list)} 个"
                     )
                 else:
                     # 回退为原生文件选择器
