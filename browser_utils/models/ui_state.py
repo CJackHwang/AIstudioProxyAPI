@@ -24,9 +24,12 @@ async def _verify_ui_state_settings(page: AsyncPage, req_id: str = "unknown") ->
     Returns:
         dict: 包含验证结果的字典
     """
-    set_request_id(req_id)
+    # Don't set lifecycle phase names as request IDs - they appear as ghost prefixes
+    # Only set actual request IDs (7-char alphanumerics)
+    if req_id not in ("initial", "set_mod", "set_model", "reload", "unknown", ""):
+        set_request_id(req_id)
     try:
-        logger.info("验证UI状态设置...")
+        logger.debug("[State] 验证 UI 状态...")
 
         # 获取当前localStorage设置
         prefs_str = await page.evaluate(
@@ -61,9 +64,11 @@ async def _verify_ui_state_settings(page: AsyncPage, req_id: str = "unknown") ->
                 "prefs": prefs,
             }
 
-            logger.info(
-                f"UI状态验证结果: isAdvancedOpen={is_advanced_open}, areToolsOpen={are_tools_open} (期望: True), needsUpdate={needs_update}"
-            )
+            if needs_update:
+                logger.debug(
+                    f"[State] 状态不匹配: adv={is_advanced_open}, tools={are_tools_open} (需更新)"
+                )
+            # No log needed when state is correct
             return result
 
         except json.JSONDecodeError as e:
@@ -101,13 +106,13 @@ async def _force_ui_state_settings(page: AsyncPage, req_id: str = "unknown") -> 
         bool: 设置是否成功
     """
     try:
-        logger.info("开始强制设置UI状态...")
+        logger.debug("[State] 强制设置 UI 状态...")
 
         # 首先验证当前状态
         current_state = await _verify_ui_state_settings(page, req_id)
 
         if not current_state["needsUpdate"]:
-            logger.info("UI状态已正确设置，无需更新")
+            logger.debug("[State] 状态已正确，无需更新")
             return True
 
         # 获取现有preferences或创建新的
@@ -124,12 +129,12 @@ async def _force_ui_state_settings(page: AsyncPage, req_id: str = "unknown") -> 
             prefs_str,
         )
 
-        logger.info("已强制设置: isAdvancedOpen=true, areToolsOpen=true")
+        logger.debug("[State] 已设置: isAdvancedOpen=true, areToolsOpen=true")
 
         # 验证设置是否成功
         verify_state = await _verify_ui_state_settings(page, req_id)
         if not verify_state["needsUpdate"]:
-            logger.info("UI状态设置验证成功")
+            logger.debug("[State] 设置验证成功")
             return True
         else:
             logger.warning("UI状态设置验证失败，可能需要重试")
@@ -161,18 +166,15 @@ async def _force_ui_state_with_retry(
         bool: 设置是否最终成功
     """
     for attempt in range(1, max_retries + 1):
-        logger.info(f"尝试强制设置UI状态 (第 {attempt}/{max_retries} 次)")
-
         success = await _force_ui_state_settings(page, req_id)
         if success:
-            logger.info(f"UI状态设置在第 {attempt} 次尝试中成功")
             return True
 
         if attempt < max_retries:
-            logger.warning(f"第 {attempt} 次尝试失败，{retry_delay}秒后重试...")
+            logger.debug(f"[State] 重试 {attempt}/{max_retries}...")
             await asyncio.sleep(retry_delay)
         else:
-            logger.error(f"UI状态设置在 {max_retries} 次尝试后仍然失败")
+            logger.warning(f"[State] {max_retries} 次尝试后仍失败")
 
     return False
 
@@ -189,20 +191,15 @@ async def _verify_and_apply_ui_state(page: AsyncPage, req_id: str = "unknown") -
         bool: 操作是否成功
     """
     try:
-        logger.info("开始验证并应用UI状态设置...")
+        logger.debug("[State] 开始验证并应用 UI 状态...")
 
         # 首先验证当前状态
         state = await _verify_ui_state_settings(page, req_id)
 
-        logger.info(
-            f"当前UI状态: exists={state['exists']}, isAdvancedOpen={state['isAdvancedOpen']}, areToolsOpen={state['areToolsOpen']}, needsUpdate={state['needsUpdate']}"
-        )
-
         if state["needsUpdate"]:
-            logger.info("检测到UI状态需要更新，正在应用强制设置...")
+            logger.debug("[State] 需要更新，应用强制设置...")
             return await _force_ui_state_with_retry(page, req_id)
         else:
-            logger.info("UI状态已正确设置，无需更新")
             return True
 
     except asyncio.CancelledError:

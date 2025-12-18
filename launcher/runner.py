@@ -70,11 +70,9 @@ class Launcher:  # pragma: no cover
 
         # 主启动器逻辑
         setup_launcher_logging(log_level=logging.INFO)
-        logger.info("Camoufox 启动器开始运行")
-        logger.info("=================================================")
+        logger.info("[系统] 启动器开始运行")
         ensure_auth_dirs_exist()
         check_dependencies(launch_server is not None, DefaultAddons is not None)
-        logger.info("=================================================")
 
         self._check_deprecated_auth_file()
         self._determine_launch_mode()
@@ -83,7 +81,7 @@ class Launcher:  # pragma: no cover
         self._check_xvfb()
         self._check_server_port()
 
-        logger.info("--- 步骤 3: 准备并启动 Camoufox 内部进程 ---")
+        logger.debug("[Init] 步骤 3: 准备并启动 Camoufox...")
         self._resolve_auth_file_path()
 
         # 自动检测当前系统并设置 Camoufox OS 模拟
@@ -98,8 +96,16 @@ class Launcher:  # pragma: no cover
             logger.warning(
                 f"无法识别当前系统 '{current_system_for_camoufox}'。Camoufox OS 模拟将默认设置为: {self.simulated_os_for_camoufox}"
             )
+
+        # Consolidated startup summary (replaces 5 verbose lines)
+        mode_str = self.final_launch_mode.replace("_", " ").capitalize()
+        auth_name = (
+            os.path.basename(self.effective_active_auth_json_path)
+            if self.effective_active_auth_json_path
+            else "None"
+        )
         logger.info(
-            f"根据当前系统 '{current_system_for_camoufox}'，Camoufox OS 模拟已自动设置为: {self.simulated_os_for_camoufox}"
+            f"[系统] 配置就绪 | 端口: {self.args.server_port} | 模式: {mode_str} | Auth: {auth_name}"
         )
 
         captured_ws_endpoint = self.camoufox_manager.start(
@@ -198,10 +204,9 @@ class Launcher:  # pragma: no cover
                 logger.info(
                     f"无效输入 '{user_mode_choice}' 或超时，使用默认启动模式: {self.final_launch_mode}模式"
                 )
-        logger.info(
+        logger.debug(
             f"最终选择的启动模式: {self.final_launch_mode.replace('_', ' ')}模式"
         )
-        logger.info("-------------------------------------------------")
 
     def _handle_auth_file_selection(self):
         if self.final_launch_mode == "debug" and not self.args.active_auth_json:
@@ -313,9 +318,7 @@ class Launcher:  # pragma: no cover
                     f"--- 端口 {server_target_port} 仍可能被占用。继续启动服务器，它将自行处理端口绑定。 ---"
                 )
         else:
-            logger.info(
-                f"端口 {server_target_port} (主机 {uvicorn_bind_host}) 当前可用。"
-            )
+            logger.debug(f"[系统] 服务端口 {server_target_port} 可用")
             port_is_available = True
 
     def _resolve_auth_file_path(self):
@@ -377,7 +380,7 @@ class Launcher:  # pragma: no cover
                 logger.info("调试模式: 扫描全目录并提示用户从可用认证文件中选择...")
             else:
                 # 对于无头模式，检查 active/ 目录中的默认认证文件
-                logger.info(
+                logger.debug(
                     f"--active-auth-json 未提供。检查 '{ACTIVE_AUTH_DIR}' 中的默认认证文件..."
                 )
                 try:
@@ -393,9 +396,6 @@ class Launcher:  # pragma: no cover
                         if active_json_files:
                             self.effective_active_auth_json_path = os.path.join(
                                 ACTIVE_AUTH_DIR, active_json_files[0]
-                            )
-                            logger.info(
-                                f"将使用 '{ACTIVE_AUTH_DIR}' 中按名称排序的第一个JSON文件: {os.path.basename(self.effective_active_auth_json_path)}"
                             )
                         else:
                             logger.info(
@@ -568,7 +568,7 @@ class Launcher:  # pragma: no cover
                 if "HELPER_SAPISID" in os.environ:  # 清理
                     del os.environ["HELPER_SAPISID"]
         else:  # args.helper 是空字符串 (用户通过 --helper='' 禁用了 helper)
-            logger.info("Helper 模式已通过 --helper='' 禁用。")
+            logger.debug("[Init] Helper 模式已禁用")
             # 清理相关的环境变量
             if "HELPER_ENDPOINT" in os.environ:
                 del os.environ["HELPER_ENDPOINT"]
@@ -576,7 +576,7 @@ class Launcher:  # pragma: no cover
                 del os.environ["HELPER_SAPISID"]
 
     def _setup_environment_variables(self, captured_ws_endpoint):
-        logger.info("--- 步骤 4: 设置环境变量并准备启动 FastAPI/Uvicorn 服务器 ---")
+        logger.debug("[Init] 步骤 4: 设置环境变量...")
 
         if captured_ws_endpoint:
             os.environ["CAMOUFOX_WS_ENDPOINT"] = captured_ws_endpoint
@@ -623,7 +623,7 @@ class Launcher:  # pragma: no cover
         elif "HOST_OS_FOR_SHORTCUT" in os.environ:
             del os.environ["HOST_OS_FOR_SHORTCUT"]
 
-        logger.info("为 server.app 设置的环境变量:")
+        logger.debug("[Init] 环境变量配置:")
         env_keys_to_log = [
             "CAMOUFOX_WS_ENDPOINT",
             "LAUNCH_MODE",
@@ -649,9 +649,9 @@ class Launcher:  # pragma: no cover
                     val_to_log = val_to_log[:40] + "..."
                 if key == "ACTIVE_AUTH_JSON_PATH":
                     val_to_log = os.path.basename(val_to_log)
-                logger.info(f"{key}={val_to_log}")
+                logger.debug(f"{key}={val_to_log}")
             else:
-                logger.info(f"{key}= (未设置)")
+                logger.debug(f"{key}= (未设置)")
 
     def _start_server(self):
         logger.info(

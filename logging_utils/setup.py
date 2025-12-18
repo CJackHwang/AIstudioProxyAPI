@@ -196,7 +196,7 @@ def setup_server_logging(
         "=" * 5 + " AIStudioProxyServer 日志系统已在 lifespan 中初始化 " + "=" * 5
     )
     logger_instance.info(f"日志级别设置为: {logging.getLevelName(log_level)}")
-    logger_instance.info(f"日志文件路径: {APP_LOG_FILE_PATH}")
+    logger_instance.debug(f"日志文件路径: {APP_LOG_FILE_PATH}")
     logger_instance.info("控制台日志处理器已添加。")
     logger_instance.info(
         f"Print 重定向 (由 SERVER_REDIRECT_PRINT 环境变量控制): {'启用' if redirect_print else '禁用'}"

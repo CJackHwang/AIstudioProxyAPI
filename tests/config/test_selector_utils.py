@@ -86,23 +86,36 @@ class TestFindFirstVisibleLocator:
 
     @pytest.mark.asyncio
     async def test_fallback_to_second_when_first_not_visible(self):
-        """Should try next selector when first is not visible."""
+        """Should try next selector when first is not visible.
+
+        Updated for two-phase approach:
+        - Phase 1: Quick count() check finds both selectors exist
+        - Phase 2: First selector's visibility fails, second succeeds
+        """
         mock_page = MagicMock()
         mock_locator1 = MagicMock()
         mock_locator2 = MagicMock()
-        mock_page.locator.side_effect = [mock_locator1, mock_locator2]
 
-        call_count = 0
+        # count() returns 1 for both selectors (they exist in DOM)
+        mock_locator1.count = AsyncMock(return_value=1)
+        mock_locator2.count = AsyncMock(return_value=1)
+
+        # Track which locator we're on
+        locator_sequence = [mock_locator1, mock_locator2, mock_locator1, mock_locator2]
+        mock_page.locator.side_effect = locator_sequence
+
+        visibility_call_count = 0
 
         async def visibility_side_effect(timeout):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
+            nonlocal visibility_call_count
+            visibility_call_count += 1
+            if visibility_call_count == 1:
+                # First visibility check fails
                 raise Exception("Timeout")
-            # Second call succeeds
+            # Second visibility check succeeds
             return None
 
-        # Mock expect to fail first, succeed second
+        # Mock expect to fail first visibility, succeed second
         with patch("playwright.async_api.expect") as mock_expect:
             mock_expect.return_value.to_be_visible = AsyncMock(
                 side_effect=visibility_side_effect
@@ -183,11 +196,13 @@ class TestRegressionFixes:
         unlike find_first_available_locator which only checks if elements exist.
 
         This test ensures:
-        1. The function uses Playwright's expect().to_be_visible() with timeout
-        2. It doesn't just check element count (which would cause timing issues)
+        1. Phase 1 uses count() to check existence
+        2. Phase 2 uses Playwright's expect().to_be_visible() with the specified timeout
         """
         mock_page = MagicMock()
         mock_locator = MagicMock()
+        # Mock count() to return 1 (element exists) so Phase 1 passes
+        mock_locator.count = AsyncMock(return_value=1)
         mock_page.locator.return_value = mock_locator
 
         # Track if to_be_visible was called with a timeout
@@ -208,7 +223,7 @@ class TestRegressionFixes:
                 timeout_per_selector=30000,  # 30 seconds as used in core.py
             )
 
-        # Verify to_be_visible was called with the timeout
+        # Verify Phase 2 to_be_visible was called with the specified timeout
         assert len(visibility_calls) == 1
         assert visibility_calls[0]["timeout"] == 30000
 

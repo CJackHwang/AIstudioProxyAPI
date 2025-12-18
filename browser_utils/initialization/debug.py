@@ -97,4 +97,4 @@ def setup_debug_listeners(page: AsyncPage) -> None:
     page.on("request", handle_request)
     page.on("response", handle_response)
 
-    logger.info("Debug listeners (console + network) attached to page")
+    logger.debug("Debug listeners (console + network) attached to page")

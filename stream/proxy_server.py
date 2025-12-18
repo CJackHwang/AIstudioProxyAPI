@@ -107,8 +107,6 @@ class ProxyServer:
         intercept = self.should_intercept(host)
 
         if intercept:
-            self.logger.info(f"Sniff HTTPS requests to : {target}")
-
             self.cert_manager.get_domain_cert(host)
 
             # Send 200 Connection Established to the client
@@ -347,7 +345,13 @@ class ProxyServer:
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                self.logger.error(f"Error processing client data: {e}", exc_info=True)
+                # Broken pipe is expected when browser cancels request - demote to debug
+                if "Broken pipe" in str(e) or "Connection reset" in str(e):
+                    self.logger.debug(f"[Proxy] 客户端断开: {e}")
+                else:
+                    self.logger.error(
+                        f"Error processing client data: {e}", exc_info=True
+                    )
             finally:
                 server_writer.close()
                 try:
@@ -483,13 +487,13 @@ class ProxyServer:
         server = await asyncio.start_server(self.handle_client, self.host, self.port)
 
         addr = server.sockets[0].getsockname()
-        self.logger.info(f"Serving on {addr}")
+        self.logger.debug(f"[Proxy] 服务地址: {addr}")
 
         # --- FIX: Send "READY" signal after server starts listening ---
         if self.queue:
             try:
                 self.queue.put("READY")
-                self.logger.info("Sent 'READY' signal to the main process.")
+                self.logger.debug("[Proxy] 已发送 READY 信号到主进程")
             except Exception as e:
                 self.logger.error(f"Failed to send 'READY' signal: {e}", exc_info=True)
 

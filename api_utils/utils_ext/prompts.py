@@ -594,9 +594,9 @@ def prepare_combined_prompt(
     # Consolidated English summary (replaces verbose Chinese logs)
     sys_indicator = "Yes" if _has_system_prompt else "No"
     attach_info = f", {len(files_list)} attachments" if files_list else ""
-    logger.info(
-        f"Prompt Prep: Composed {_msg_count} msgs (System: {sys_indicator}) "
-        f"into {len(final_prompt):,} chars{attach_info}."
+    logger.debug(
+        f"[Prompt] 构建消息: {_msg_count} 条 (System: {sys_indicator}), "
+        f"共 {len(final_prompt):,} 字符{attach_info}"
     )
 
     return final_prompt, files_list

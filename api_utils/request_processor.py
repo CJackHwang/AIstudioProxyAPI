@@ -586,14 +586,14 @@ async def _cleanup_request_resources(
         except asyncio.CancelledError:
             pass
 
-    logger.info("Processing complete.")
+    # Processing logged at higher level
 
     # Clean up upload subdirectory for this request to avoid disk accumulation
     try:
         req_dir = os.path.join(UPLOAD_FILES_DIR, req_id)
         if os.path.isdir(req_dir):
             shutil.rmtree(req_dir, ignore_errors=True)
-            logger.info(f"Cleaned up request upload directory: {req_dir}")
+            logger.debug(f"Cleaned up request upload directory: {req_dir}")
     except asyncio.CancelledError:
         raise
     except Exception as clean_err:
@@ -644,16 +644,14 @@ async def _process_request_refactored(  # pyright: ignore[reportUnusedFunction] 
     stream_port = get_environment_variable("STREAM_PORT")
     use_stream = stream_port != "0"
     if use_stream:
-        logger.info("Clearing stream queue before request (prevent residual data)...")
         try:
             from api_utils import clear_stream_queue
 
             await clear_stream_queue()
-            logger.info("Stream queue cleared")
         except asyncio.CancelledError:
             raise
         except Exception as clear_err:
-            logger.warning(f"Error clearing stream queue: {clear_err}")
+            logger.warning(f"[Stream] 清空队列错误: {clear_err}")
 
     context = await _initialize_request_context(req_id, request)
     context = await _analyze_model_requirements(req_id, context, request)
@@ -701,8 +699,8 @@ async def _process_request_refactored(  # pyright: ignore[reportUnusedFunction] 
             if "stop" in request.model_fields_set and request.stop is None:
                 request_params["stop"] = None
 
-            # Wrap parameter adjustment in visual context
-            with log_context("Adjusting Parameters", context["logger"]):
+            # Wrap parameter adjustment in silent context
+            with log_context("Adjusting Parameters", context["logger"], silent=True):
                 await page_controller.adjust_parameters(
                     request_params,
                     context["page_params_cache"],
@@ -715,8 +713,8 @@ async def _process_request_refactored(  # pyright: ignore[reportUnusedFunction] 
             # Optimization: Final check of client connection before submitting prompt
             check_client_disconnected("Final check before submitting prompt")
 
-            # Wrap prompt submission in visual context
-            with log_context("Execution", context["logger"]):
+            # Wrap prompt submission in silent context
+            with log_context("Execution", context["logger"], silent=True):
                 await page_controller.submit_prompt(
                     prepared_prompt, image_list, check_client_disconnected
                 )

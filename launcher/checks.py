@@ -9,12 +9,11 @@ logger = logging.getLogger("CamoufoxLauncher")
 
 
 def ensure_auth_dirs_exist() -> None:
-    logger.info("正在检查并确保认证文件目录存在...")
     try:
         os.makedirs(ACTIVE_AUTH_DIR, exist_ok=True)
-        logger.info(f"活动认证目录就绪: {ACTIVE_AUTH_DIR}")
+        logger.debug(f"活动认证目录就绪: {ACTIVE_AUTH_DIR}")
         os.makedirs(SAVED_AUTH_DIR, exist_ok=True)
-        logger.info(f"已保存认证目录就绪: {SAVED_AUTH_DIR}")
+        logger.debug(f"已保存认证目录就绪: {SAVED_AUTH_DIR}")
     except Exception as e:
         logger.error(f"创建认证目录失败: {e}", exc_info=True)
         sys.exit(1)
@@ -23,7 +22,7 @@ def ensure_auth_dirs_exist() -> None:
 def check_dependencies(
     launch_server: Optional[bool], DefaultAddons: Optional[bool]
 ) -> None:
-    logger.info("--- 步骤 1: 检查依赖项 ---")
+    logger.debug("[Init] 步骤 1: 检查依赖项...")
     required_modules: Dict[str, str] = {}
     if launch_server is not None and DefaultAddons is not None:
         required_modules["camoufox"] = "camoufox (for server and addons)"
@@ -35,11 +34,10 @@ def check_dependencies(
     missing_py_modules: List[str] = []
     dependencies_ok = True
     if required_modules:
-        logger.info("正在检查 Python 模块:")
         for module_name, install_package_name in required_modules.items():
             try:
                 __import__(module_name)
-                logger.info(f"模块 '{module_name}' 已找到。")
+                logger.debug(f"模块 '{module_name}' 已找到。")
             except ImportError:
                 logger.error(
                     f"  模块 '{module_name}' (包: '{install_package_name}') 未找到。"
@@ -55,7 +53,7 @@ def check_dependencies(
             )
             dependencies_ok = False
         elif not is_any_internal_arg:
-            logger.info(
+            logger.debug(
                 "未请求内部启动模式，且未导入 camoufox.server，跳过对 'camoufox' Python 包的检查。"
             )
 
@@ -63,7 +61,7 @@ def check_dependencies(
         from server import app as server_app_check
 
         if server_app_check:
-            logger.info("成功从 'server.py' 导入 'app' 对象。")
+            logger.debug("[Init] 成功从 server.py 导入 app 对象")
     except ImportError as e_import_server:
         logger.error(
             f"  无法从 'server.py' 导入 'app' 对象: {e_import_server}", exc_info=True
@@ -82,4 +80,4 @@ def check_dependencies(
         logger.error("-------------------------------------------------")
         sys.exit(1)
     else:
-        logger.info("所有启动器依赖项检查通过。")
+        logger.debug("[Init] 所有依赖项检查通过")

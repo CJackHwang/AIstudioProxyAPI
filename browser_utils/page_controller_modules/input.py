@@ -30,7 +30,7 @@ class InputController(BaseController):
     ):
         """提交提示到页面。"""
         set_request_id(self.req_id)
-        self.logger.info(f"填充并提交提示 ({len(prompt)} chars)...")
+        self.logger.debug(f"[Input] 填充提示词 ({len(prompt)} chars)")
         prompt_textarea_locator = self.page.locator(PROMPT_TEXTAREA_SELECTOR)
         # 使用集中管理的选择器，支持新旧 UI 结构
         autosize_wrapper_locator = self.page.locator(
@@ -77,11 +77,7 @@ class InputController(BaseController):
                     )
             await self._check_disconnect(check_client_disconnected, "After Input Fill")
 
-            # 上传（仅使用菜单 + 隐藏 input 设置文件；处理可能的授权弹窗）
-            try:
-                self.logger.info(f"待上传附件数量: {len(image_list)}")
-            except Exception:
-                pass
+            # Attachment upload handled below if needed
             if len(image_list) > 0:
                 ok = await self._open_upload_menu_and_choose_file(image_list)
                 if not ok:
@@ -92,8 +88,8 @@ class InputController(BaseController):
 
             wait_timeout_ms_submit_enabled = SUBMIT_BUTTON_ENABLE_TIMEOUT_MS
             start_time = asyncio.get_event_loop().time()
-            self.logger.info(
-                f"等待发送按钮启用 (最大 {wait_timeout_ms_submit_enabled}ms)..."
+            self.logger.debug(
+                f"[Input] 等待发送按钮 (max {wait_timeout_ms_submit_enabled}ms)"
             )
 
             try:
@@ -105,7 +101,7 @@ class InputController(BaseController):
                     try:
                         # 使用短超时轮询检查，以便能响应中断信号
                         if await submit_button_locator.is_enabled(timeout=500):
-                            self.logger.info("发送按钮已启用。")
+                            self.logger.debug("[Input] 发送按钮已启用")
                             break
                     except Exception:
                         # 忽略临时错误（如元素尚未出现）
@@ -133,11 +129,11 @@ class InputController(BaseController):
             # 优先点击按钮提交，其次回车提交，最后组合键提交
             button_clicked = False
             try:
-                self.logger.info("尝试点击提交按钮...")
+                self.logger.debug("[Input] 尝试点击提交按钮...")
                 # 提交前再处理一次潜在对话框，避免按钮点击被拦截
                 await self._handle_post_upload_dialog()
                 await submit_button_locator.click(timeout=5000)
-                self.logger.info("提交按钮点击完成。")
+                self.logger.debug("[Input] 提交按钮点击完成")
                 button_clicked = True
             except Exception as click_err:
                 self.logger.error(f"提交按钮点击失败: {click_err}")

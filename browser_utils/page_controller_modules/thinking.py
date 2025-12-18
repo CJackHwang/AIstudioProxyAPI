@@ -1,4 +1,5 @@
 import asyncio
+from enum import Enum, auto
 from typing import Any, Callable, Dict, Optional
 
 from playwright.async_api import TimeoutError
@@ -28,6 +29,15 @@ from models import ClientDisconnectedError
 from .base import BaseController
 
 
+class ThinkingCategory(Enum):
+    """Model thinking capability categories."""
+
+    NON_THINKING = auto()  # No thinking UI at all (gemini-2.0-*, gemini-1.5-*)
+    THINKING_FLASH = auto()  # Toggleable thinking mode + budget (gemini-2.5-flash*)
+    THINKING_PRO = auto()  # Always-on thinking, budget toggle/slider (gemini-2.5-pro*)
+    THINKING_LEVEL = auto()  # Level dropdown only (gemini-3-pro*)
+
+
 class ThinkingController(BaseController):
     """Handles thinking mode and budget logic."""
 
@@ -46,11 +56,17 @@ class ThinkingController(BaseController):
         """
         reasoning_effort = request_params.get("reasoning_effort")
 
+        # 根据模型类别决定处理逻辑
+        category = self._get_thinking_category(model_id_to_use)
+        if category == ThinkingCategory.NON_THINKING:
+            self.logger.debug("[Thinking] 该模型不支持思考模式，跳过配置")
+            return
+
         directive = normalize_reasoning_effort(reasoning_effort)
-        self.logger.info(f"思考模式指令: {format_directive_log(directive)}")
+        self.logger.debug(f"[Thinking] 指令: {format_directive_log(directive)}")
 
         uses_level = (
-            self._uses_thinking_level(model_id_to_use)
+            category == ThinkingCategory.THINKING_LEVEL
             and await self._has_thinking_dropdown()
         )
 
@@ -79,7 +95,7 @@ class ThinkingController(BaseController):
         if reasoning_effort is None and uses_level:
             desired_enabled = True
 
-        has_main_toggle = self._model_has_main_thinking_toggle(model_id_to_use)
+        has_main_toggle = category == ThinkingCategory.THINKING_FLASH
         if has_main_toggle:
             self.logger.info(
                 f"开始设置主思考开关到: {'开启' if desired_enabled else '关闭'}"
@@ -93,7 +109,7 @@ class ThinkingController(BaseController):
 
         if not desired_enabled:
             # 跳过无预算开关的模型 (gemini-3-pro-preview 系列使用思考等级而非预算)
-            if self._uses_thinking_level(model_id_to_use):
+            if category == ThinkingCategory.THINKING_LEVEL:
                 return
             # Flash/Flash Lite 模型：关闭主思考开关后，预算开关会被隐藏，无需再操作
             # 这避免了尝试操作不可见元素导致的 5 秒超时
@@ -209,23 +225,30 @@ class ThinkingController(BaseController):
         except Exception:
             return False
 
-    def _uses_thinking_level(self, model_id_to_use: Optional[str]) -> bool:
-        """仅在 Gemini 3 Pro 系列上使用“思考等级”逻辑，其它模型一律使用预算。
+    def _get_thinking_category(self, model_id: Optional[str]) -> ThinkingCategory:
+        """Return thinking category based on model ID.
 
-        规则：model_id 包含 'gemini-3' 且包含 'pro' 时返回 True。
+        Categories:
+        - NON_THINKING: No thinking UI (gemini-2.0-*, gemini-1.5-*)
+        - THINKING_FLASH: Toggleable thinking mode + budget (gemini-2.5-flash*)
+        - THINKING_PRO: Always-on thinking, budget configurable (gemini-2.5-pro*)
+        - THINKING_LEVEL: Level dropdown only (gemini-3-pro*)
         """
-        try:
-            mid = (model_id_to_use or "").lower()
-            return ("gemini-3" in mid) and ("pro" in mid)
-        except Exception:
-            return False
+        if not model_id:
+            return ThinkingCategory.NON_THINKING
 
-    def _model_has_main_thinking_toggle(self, model_id_to_use: Optional[str]) -> bool:
-        try:
-            mid = (model_id_to_use or "").lower()
-            return "flash" in mid
-        except Exception:
-            return False
+        mid = model_id.lower()
+
+        if "gemini-3" in mid and "pro" in mid:
+            return ThinkingCategory.THINKING_LEVEL
+
+        if "gemini-2.5-pro" in mid:
+            return ThinkingCategory.THINKING_PRO
+
+        if "gemini-2.5-flash" in mid:
+            return ThinkingCategory.THINKING_FLASH
+
+        return ThinkingCategory.NON_THINKING
 
     async def _set_thinking_level(
         self, level: str, check_client_disconnected: Callable

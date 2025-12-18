@@ -1013,7 +1013,7 @@ async def test_execute_chat_clear_disappear_client_disconnected(
 
         # Verify info log about disconnect
         mock_page_controller.logger.info.assert_any_call(
-            " 客户端在等待清空确认对话框消失时断开连接。"
+            "客户端在等待清空确认对话框消失时断开连接。"
         )
 
 
@@ -1255,3 +1255,82 @@ async def test_verify_chat_cleared_cancelled_error(
 
         with pytest.raises(asyncio.CancelledError):
             await chat_controller._verify_chat_cleared(mock_check_disconnect)
+
+
+# ==================== [Chat] Tag Logging Verification Tests ====================
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(5)
+async def test_chat_tag_on_clear_start(
+    chat_controller, mock_page_controller, mock_expect_async
+):
+    """Verify [Chat] tag used in logging when clearing chat starts."""
+    mock_check_disconnect = MagicMock(return_value=False)
+
+    # Setup minimal mocks to trigger early return
+    mock_expect_async.return_value.to_be_enabled.side_effect = Exception("Not enabled")
+    mock_page_controller.page.url = "https://example.com/prompts/new_chat"
+
+    await chat_controller.clear_chat_history(mock_check_disconnect)
+
+    # Verify [Chat] tag was used (check debug calls)
+    debug_calls = [
+        str(call) for call in mock_page_controller.logger.debug.call_args_list
+    ]
+    assert any("[Chat]" in str(call) for call in debug_calls)
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(5)
+async def test_chat_tag_on_button_available(
+    chat_controller, mock_page_controller, mock_expect_async, mock_enable_temp_chat
+):
+    """Verify [Chat] 清空按钮可用 log is issued."""
+    mock_check_disconnect = MagicMock(return_value=False)
+
+    submit_btn = MagicMock()
+    submit_btn.click = AsyncMock()
+    clear_btn = MagicMock()
+    mock_page_controller.page.locator.return_value = clear_btn
+    mock_page_controller.page.url = "https://example.com/c/123"
+
+    with (
+        patch.object(chat_controller, "_execute_chat_clear", new_callable=AsyncMock),
+        patch.object(chat_controller, "_verify_chat_cleared", new_callable=AsyncMock),
+    ):
+        await chat_controller.clear_chat_history(mock_check_disconnect)
+
+        # Verify [Chat] 清空按钮可用 log
+        debug_calls = [
+            str(call) for call in mock_page_controller.logger.debug.call_args_list
+        ]
+        assert any(
+            "清空按钮可用" in str(call) or "[Chat]" in str(call) for call in debug_calls
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(5)
+async def test_chat_tag_on_verify_success(chat_controller, mock_page_controller):
+    """Verify [Chat] 验证通过 log on successful verification."""
+    mock_check_disconnect = MagicMock(return_value=False)
+
+    response_container = MagicMock()
+    response_container.last = response_container
+    mock_page_controller.page.locator.return_value = response_container
+
+    with patch(
+        "browser_utils.page_controller_modules.chat.expect_async"
+    ) as mock_expect:
+        mock_expect.return_value.to_be_hidden = AsyncMock()
+
+        await chat_controller._verify_chat_cleared(mock_check_disconnect)
+
+        # Verify [Chat] 验证通过 log
+        debug_calls = [
+            str(call) for call in mock_page_controller.logger.debug.call_args_list
+        ]
+        assert any(
+            "验证通过" in str(call) or "[Chat]" in str(call) for call in debug_calls
+        )

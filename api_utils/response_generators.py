@@ -39,7 +39,7 @@ async def gen_sse_from_aux_stream(
     logger = logging.getLogger("AIStudioProxyServer")
     set_request_id(req_id)
 
-    logger.info("开始生成 SSE 响应流")
+    # Stream start logged by use_stream_response
 
     last_reason_pos = 0
     last_body_pos = 0
@@ -238,14 +238,14 @@ async def gen_sse_from_aux_stream(
         # 重新抛出异常，让流式响应正常终止，而不是将错误作为聊天内容返回
         raise
     finally:
-        logger.info("SSE 响应流生成结束")
+        # Stream end - cleanup follows
         try:
             usage_stats = calculate_usage_stats(
                 [msg.model_dump() for msg in request.messages],
                 full_body_content,
                 full_reasoning_content,
             )
-            logger.info(f"计算的token使用统计: {usage_stats}")
+            logger.debug(f"[Usage] Token 统计: {usage_stats}")
             final_chunk: Dict[str, Any] = {
                 "id": chat_completion_id,
                 "object": "chat.completion.chunk",
@@ -267,7 +267,6 @@ async def gen_sse_from_aux_stream(
         except Exception as usage_err:
             logger.error(f"计算或发送usage统计时出错: {usage_err}")
         try:
-            logger.info("流式生成器完成，发送 [DONE] 标记")
             yield "data: [DONE]\n\n"
         except asyncio.CancelledError:
             raise
@@ -275,13 +274,12 @@ async def gen_sse_from_aux_stream(
             logger.error(f"发送 [DONE] 标记时出错: {done_err}")
         if not event_to_set.is_set():
             event_to_set.set()
-            logger.info("流式生成器完成事件已设置")
 
         # 更新 stream_state 以报告是否收到内容
         if stream_state is not None:
             has_content = bool(full_body_content or full_reasoning_content)
             stream_state["has_content"] = has_content
-            logger.info(f"流状态更新: has_content={has_content}")
+            logger.debug(f"流状态更新: has_content={has_content}")
 
 
 async def gen_sse_from_playwright(
@@ -330,7 +328,7 @@ async def gen_sse_from_playwright(
             final_content,
             "",
         )
-        logger.info(f"Playwright非流式计算的token使用统计: {usage_stats}")
+        logger.info(f"[Usage] Playwright Non-Stream Token 统计: {usage_stats}")
         yield generate_sse_stop_chunk(
             req_id, model_name_for_stream, "stop", usage_stats
         )

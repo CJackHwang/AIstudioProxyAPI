@@ -808,3 +808,135 @@ async def test_handle_model_list_response_debug_logs_enabled(mock_state):
 
     # Should log first 3 models when debug enabled
     assert len(mock_state.parsed_model_list) == 3
+
+
+# ==================== Model List Change Detection Tests ====================
+
+
+@pytest.mark.asyncio
+@patch(
+    "browser_utils.operations_modules.parsers.MODELS_ENDPOINT_URL_CONTAINS", "models"
+)
+@patch("browser_utils.operations_modules.parsers.DEBUG_LOGS_ENABLED", True)
+@patch("api_utils.server_state.state")
+async def test_handle_model_list_response_tracks_last_count(mock_state):
+    """Test that _last_model_count is tracked for change detection."""
+    import asyncio
+
+    mock_state.parsed_model_list = []
+    mock_state.excluded_model_ids = set()
+    mock_state.is_page_ready = True
+    mock_state.model_list_fetch_event = AsyncMock(spec=asyncio.Event)
+    mock_state.model_list_fetch_event.is_set.return_value = False
+    mock_state._last_model_count = 0
+
+    response = AsyncMock()
+    response.url = "https://example.com/models"
+    response.ok = True
+    response.status = 200
+    response.json.return_value = [
+        {"id": "model-1", "displayName": "Model 1"},
+        {"id": "model-2", "displayName": "Model 2"},
+    ]
+
+    await _handle_model_list_response(response)
+
+    # _last_model_count should be updated
+    assert mock_state._last_model_count == 2
+
+
+@pytest.mark.asyncio
+@patch(
+    "browser_utils.operations_modules.parsers.MODELS_ENDPOINT_URL_CONTAINS", "models"
+)
+@patch("browser_utils.operations_modules.parsers.DEBUG_LOGS_ENABLED", True)
+@patch("api_utils.server_state.state")
+async def test_handle_model_list_no_change_detection(mock_state):
+    """Test that 'no change' log is shown when model count is same."""
+    import asyncio
+
+    # Pre-set same count
+    mock_state.parsed_model_list = []
+    mock_state.excluded_model_ids = set()
+    mock_state.is_page_ready = True
+    mock_state.model_list_fetch_event = AsyncMock(spec=asyncio.Event)
+    mock_state.model_list_fetch_event.is_set.return_value = False
+    mock_state._last_model_count = 2  # Set to match expected count
+
+    response = AsyncMock()
+    response.url = "https://example.com/models"
+    response.ok = True
+    response.status = 200
+    response.json.return_value = [
+        {"id": "model-1", "displayName": "Model 1"},
+        {"id": "model-2", "displayName": "Model 2"},
+    ]
+
+    await _handle_model_list_response(response)
+
+    assert len(mock_state.parsed_model_list) == 2
+
+
+@pytest.mark.asyncio
+@patch(
+    "browser_utils.operations_modules.parsers.MODELS_ENDPOINT_URL_CONTAINS", "models"
+)
+@patch("browser_utils.operations_modules.parsers.DEBUG_LOGS_ENABLED", True)
+@patch("api_utils.server_state.state")
+async def test_handle_model_list_excluded_in_change_block(mock_state):
+    """Test that excluded models log is only shown when count changes."""
+    import asyncio
+
+    mock_state.parsed_model_list = []
+    mock_state.excluded_model_ids = {"excluded-1"}
+    mock_state.is_page_ready = True
+    mock_state.model_list_fetch_event = AsyncMock(spec=asyncio.Event)
+    mock_state.model_list_fetch_event.is_set.return_value = False
+    mock_state._last_model_count = 0  # Initial load
+
+    response = AsyncMock()
+    response.url = "https://example.com/models"
+    response.ok = True
+    response.status = 200
+    response.json.return_value = [
+        {"id": "excluded-1", "displayName": "Excluded"},
+        {"id": "included-1", "displayName": "Included"},
+    ]
+
+    await _handle_model_list_response(response)
+
+    # Only included model should be in list
+    assert len(mock_state.parsed_model_list) == 1
+    assert mock_state.parsed_model_list[0]["id"] == "included-1"
+
+
+@pytest.mark.asyncio
+@patch(
+    "browser_utils.operations_modules.parsers.MODELS_ENDPOINT_URL_CONTAINS", "models"
+)
+@patch("browser_utils.operations_modules.parsers.DEBUG_LOGS_ENABLED", True)
+@patch("api_utils.server_state.state")
+async def test_handle_model_list_first_load_always_logs(mock_state):
+    """Test that first load (previous_count=0) always logs full details."""
+    import asyncio
+
+    mock_state.parsed_model_list = []
+    mock_state.excluded_model_ids = set()
+    mock_state.is_page_ready = True
+    mock_state.model_list_fetch_event = AsyncMock(spec=asyncio.Event)
+    mock_state.model_list_fetch_event.is_set.return_value = False
+    # No _last_model_count attribute (first load)
+    if hasattr(mock_state, "_last_model_count"):
+        delattr(mock_state, "_last_model_count")
+
+    response = AsyncMock()
+    response.url = "https://example.com/models"
+    response.ok = True
+    response.status = 200
+    response.json.return_value = [
+        {"id": "test-model", "displayName": "Test"},
+    ]
+
+    await _handle_model_list_response(response)
+
+    assert len(mock_state.parsed_model_list) == 1

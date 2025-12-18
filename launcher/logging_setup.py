@@ -52,6 +52,5 @@ def setup_launcher_logging(log_level: int = logging.INFO) -> None:
     stream_handler.setFormatter(console_log_formatter)
     logger.addHandler(stream_handler)
 
-    logger.info("=" * 20 + " Camoufox 启动器日志系统已初始化 " + "=" * 20)
     logger.info(f"日志级别设置为: {logging.getLevelName(logger.getEffectiveLevel())}")
-    logger.info(f"日志文件路径: {LAUNCHER_LOG_FILE_PATH}")
+    logger.debug(f"日志文件路径: {LAUNCHER_LOG_FILE_PATH}")

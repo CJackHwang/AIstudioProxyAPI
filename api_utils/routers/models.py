@@ -25,7 +25,7 @@ async def list_models(
     parsed_model_list: List[Dict[str, Any]] = Depends(get_parsed_model_list),
     excluded_model_ids: Set[str] = Depends(get_excluded_model_ids),
 ):
-    logger.info("[API] 收到 /v1/models 请求。")
+    logger.debug("[API] 收到 /v1/models 请求。")
 
     if (
         not model_list_fetch_event.is_set()

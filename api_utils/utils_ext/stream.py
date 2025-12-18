@@ -35,12 +35,11 @@ async def use_stream_response(req_id: str) -> AsyncGenerator[Any, None]:
             try:
                 data = STREAM_QUEUE.get_nowait()
                 if data is None:
-                    logger.info("接收到流结束标志 (None)")
+                    logger.debug("[Stream] 接收到流结束标志 (None)")
                     break
                 empty_count = 0
                 data_received = True
                 received_items_count += 1
-                logger.debug(f"接收到流数据[#{received_items_count}]: {type(data)}")
 
                 if isinstance(data, str):
                     try:
@@ -85,8 +84,8 @@ async def use_stream_response(req_id: str) -> AsyncGenerator[Any, None]:
                             reason = parsed_data.get("reason", "")
                             if body or reason:
                                 has_content = True
-                            logger.info(
-                                f"接收到JSON格式的完成标志 (body长度:{len(body)}, reason长度:{len(reason)}, 已收到项目数:{received_items_count})"
+                            logger.debug(
+                                f"[Stream] 捕获完成标志 (body:{len(body)}, reason:{len(reason)}, count:{received_items_count})"
                             )
                             if (
                                 not has_content
@@ -108,7 +107,7 @@ async def use_stream_response(req_id: str) -> AsyncGenerator[Any, None]:
                             stale_done_ignored = False
                             yield parsed_data
                     except json.JSONDecodeError:
-                        logger.debug("返回非JSON字符串数据")
+                        logger.debug("[Stream] 返回非 JSON 字符串数据")
                         has_content = True
                         stale_done_ignored = False
                         yield data
@@ -120,8 +119,8 @@ async def use_stream_response(req_id: str) -> AsyncGenerator[Any, None]:
                         if body or reason:
                             has_content = True
                         if data.get("done") is True:
-                            logger.info(
-                                f"接收到字典格式的完成标志 (body长度:{len(body)}, reason长度:{len(reason)}, 已收到项目数:{received_items_count})"
+                            logger.debug(
+                                f"[Stream] 捕获完成标志 (body:{len(body)}, reason:{len(reason)}, count:{received_items_count})"
                             )
                             if (
                                 not has_content
@@ -140,7 +139,7 @@ async def use_stream_response(req_id: str) -> AsyncGenerator[Any, None]:
                 empty_count += 1
                 if empty_count % 50 == 0:
                     logger.debug(
-                        f"Waiting for stream data... ({empty_count}/{max_empty_retries}, received:{received_items_count})"
+                        f"[Stream] 等待数据... ({empty_count}/{max_empty_retries}, 已接收:{received_items_count})"
                     )
                 if empty_count >= max_empty_retries:
                     if not data_received:
@@ -166,10 +165,7 @@ async def use_stream_response(req_id: str) -> AsyncGenerator[Any, None]:
         logger.error(f"使用流响应时出错: {e}", exc_info=True)
         raise
     finally:
-        logger.info(
-            f"流响应使用完成, 数据接收状态: {data_received}, 有内容: {has_content}, 收到项目数: {received_items_count}, "
-            f"曾忽略空done: {stale_done_ignored}"
-        )
+        pass  # Stream completion logged by capture flag
 
 
 async def clear_stream_queue():
@@ -178,7 +174,7 @@ async def clear_stream_queue():
     from server import STREAM_QUEUE, logger
 
     if STREAM_QUEUE is None:
-        logger.info("流队列未初始化或已被禁用，跳过清空操作。")
+        logger.debug("[Stream] 队列未初始化或已禁用，跳过清空")
         return
 
     cleared_count = 0
@@ -188,12 +184,10 @@ async def clear_stream_queue():
             cleared_count += 1
             if cleared_count <= 3:
                 logger.debug(
-                    f"清空流式队列项 #{cleared_count}: {type(data_chunk)} - {str(data_chunk)[:100]}..."
+                    f"[Stream] 清空队列项 #{cleared_count}: {type(data_chunk).__name__}"
                 )
         except queue.Empty:
-            logger.info(
-                f"流式队列已清空 (捕获到 queue.Empty)。清空项数: {cleared_count}"
-            )
+            logger.debug(f"[Stream] 队列已清空 (共 {cleared_count} 项)")
             break
         except asyncio.CancelledError:
             raise
@@ -204,9 +198,4 @@ async def clear_stream_queue():
             )
             break
 
-    if cleared_count > 0:
-        logger.warning(
-            f"[CLEANUP] 流式队列缓存清空完毕，共清理了 {cleared_count} 个残留项目！"
-        )
-    else:
-        logger.info("流式队列缓存清空完毕（队列为空）。")
+    # [Stream] 队列已清空 log above is sufficient

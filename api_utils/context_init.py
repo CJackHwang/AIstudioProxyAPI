@@ -12,8 +12,9 @@ async def initialize_request_context(
     from api_utils.server_state import state
 
     set_request_id(req_id)
-    state.logger.info("开始处理请求...")
-    state.logger.info(f"请求参数 - Model: {request.model}, Stream: {request.stream}")
+    state.logger.debug(
+        f"[Request] 参数: Model={request.model}, Stream={request.stream}"
+    )
 
     context: RequestContext = cast(
         RequestContext,

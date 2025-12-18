@@ -289,6 +289,9 @@ class GridFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record into grid layout."""
+        # Skip during Python shutdown to avoid ImportError
+        if sys.meta_path is None:
+            return record.getMessage()
 
         # Extract context variables with defaults
         try:

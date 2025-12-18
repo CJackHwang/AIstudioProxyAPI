@@ -79,13 +79,13 @@ def log_error(
                 )
             except RuntimeError:
                 # No running event loop - can't save async snapshot
-                logger.debug("Cannot save error snapshot: no running event loop")
+                logger.debug("[Snapshot] 无法保存错误快照: 无运行事件循环")
         except ImportError:
             # debug_utils not available (e.g., in tests or standalone mode)
             pass
         except Exception as snapshot_err:
             # Don't let snapshot failures break the main error handling
-            logger.debug(f"Failed to save error snapshot: {snapshot_err}")
+            logger.debug(f"[Snapshot] 保存错误快照失败: {snapshot_err}")
 
 
 def _asyncio_exception_handler(loop: asyncio.AbstractEventLoop, context: dict) -> None:
@@ -100,6 +100,20 @@ def _asyncio_exception_handler(loop: asyncio.AbstractEventLoop, context: dict) -
         loop: The event loop that caught the exception
         context: Exception context dict with 'message', 'exception', etc.
     """
+    # Skip logging during Python shutdown to avoid ImportError crashes
+    import sys
+
+    if sys.meta_path is None or sys.modules is None:
+        return
+
+    # Also check if logging module is still available
+    try:
+        import logging as _check
+
+        del _check
+    except (ImportError, TypeError):
+        return
+
     logger = logging.getLogger("AIStudioProxyServer")
 
     # Extract exception info
@@ -193,7 +207,7 @@ def setup_global_exception_handlers(
         try:
             loop = asyncio.get_running_loop()
             loop.set_exception_handler(_asyncio_exception_handler)
-            logger.debug("Installed asyncio global exception handler")
+            logger.debug("[Init] 全局异常处理器已安装 (Asyncio)")
         except RuntimeError:
             # No running event loop yet - will be installed when loop starts
             # This is common during module import
@@ -203,7 +217,7 @@ def setup_global_exception_handlers(
         # Python 3.8+
         if hasattr(threading, "excepthook"):
             threading.excepthook = _threading_exception_handler
-            logger.debug("Installed threading global exception handler")
+            logger.debug("[Init] 全局异常处理器已安装 (Threading)")
 
 
 def install_asyncio_handler_on_loop(loop: asyncio.AbstractEventLoop) -> None:

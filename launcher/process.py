@@ -120,7 +120,7 @@ class CamoufoxProcessManager:
             camoufox_popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
         try:
-            logger.info(
+            logger.debug(
                 f"将执行 Camoufox 内部启动命令: {' '.join(camoufox_internal_cmd_args)}"
             )
             self.camoufox_proc = subprocess.Popen(
@@ -176,22 +176,28 @@ class CamoufoxProcessManager:
                             break
                         continue
 
-                    log_line_content = f"[InternalCamoufox-{stream_name}-PID:{self.camoufox_proc.pid}]: {line_from_camoufox.rstrip()}"
+                    # Skip the ugly prefix, just log the content
+                    log_content = line_from_camoufox.rstrip()
+                    # Skip verbose startup messages (move to debug)
                     if (
-                        stream_name == "stderr"
-                        or "ERROR" in line_from_camoufox.upper()
-                        or "" in line_from_camoufox
+                        "[内部Camoufox启动]" in log_content
+                        or "传递给 launch_server" in log_content
                     ):
-                        logger.warning(log_line_content)
+                        logger.debug(f"(Camoufox) {log_content}")
+                    elif (
+                        stream_name == "stderr" or "ERROR" in line_from_camoufox.upper()
+                    ):
+                        logger.info(f"(Camoufox) {log_content}")
                     else:
-                        logger.info(log_line_content)
+                        logger.debug(f"(Camoufox) {log_content}")
 
                     ws_match = ws_regex.search(line_from_camoufox)
                     if ws_match:
                         self.captured_ws_endpoint = ws_match.group(1)
-                        logger.info(
+                        logger.debug(
                             f"成功从 Camoufox 内部进程捕获到 WebSocket 端点: {self.captured_ws_endpoint[:40]}..."
                         )
+                        logger.info("[内核] WebSocket 端点获取成功")
                         break
                 except queue.Empty:
                     continue

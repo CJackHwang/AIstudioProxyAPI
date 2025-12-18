@@ -35,6 +35,8 @@ class HttpInterceptor:
 
         logging.getLogger("asyncio").setLevel(logging.ERROR)
         logging.getLogger("websockets").setLevel(logging.ERROR)
+        # Silence http_interceptor by default (too verbose)
+        logging.getLogger("http_interceptor").setLevel(logging.WARNING)
 
     @staticmethod
     def should_intercept(host: str, path: str):
@@ -58,7 +60,7 @@ class HttpInterceptor:
             return request_data
 
         # Log the request
-        self.logger.info(f"Intercepted request to {host}{path}")
+        self.logger.debug(f"[Network] 拦截请求: {host}{path}")
 
         try:
             return request_data

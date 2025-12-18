@@ -18,7 +18,6 @@ async def analyze_model_requirements(
 
     if requested_model and requested_model != proxy_model_name:
         requested_model_id = requested_model.split("/")[-1]
-        logger.info(f"请求使用模型: {requested_model_id}")
 
         if parsed_model_list:
             valid_model_ids = [
@@ -35,8 +34,8 @@ async def analyze_model_requirements(
         context["model_id_to_use"] = requested_model_id
         if current_ai_studio_model_id != requested_model_id:
             context["needs_model_switching"] = True
-            logger.info(
-                f"需要切换模型: 当前={current_ai_studio_model_id} -> 目标={requested_model_id}"
+            logger.debug(
+                f"[Model] 判定需切换: {current_ai_studio_model_id} -> {requested_model_id}"
             )
 
     return context
@@ -60,9 +59,6 @@ async def handle_model_switching(
 
     async with model_switching_lock:
         if state.current_ai_studio_model_id != model_id_to_use:
-            logger.info(
-                f"准备切换模型: {state.current_ai_studio_model_id} -> {model_id_to_use}"
-            )
             from browser_utils import switch_ai_studio_model
 
             switch_success = await switch_ai_studio_model(page, model_id_to_use, req_id)
@@ -70,7 +66,6 @@ async def handle_model_switching(
                 state.current_ai_studio_model_id = model_id_to_use
                 context["model_actually_switched"] = True
                 context["current_ai_studio_model_id"] = model_id_to_use
-                logger.info(f"模型切换成功: {state.current_ai_studio_model_id}")
             else:
                 # Current model ID should exist when switching fails
                 current_model = state.current_ai_studio_model_id or "unknown"
@@ -104,7 +99,6 @@ async def _handle_model_switch_failure(
 
 async def handle_parameter_cache(req_id: str, context: RequestContext) -> None:
     set_request_id(req_id)
-    logger = context["logger"]
     params_cache_lock = context["params_cache_lock"]
     page_params_cache = context["page_params_cache"]
     current_ai_studio_model_id = context["current_ai_studio_model_id"]
@@ -117,7 +111,6 @@ async def handle_parameter_cache(req_id: str, context: RequestContext) -> None:
         if model_actually_switched or (
             current_ai_studio_model_id != cached_model_for_params
         ):
-            logger.info("模型已更改，参数缓存失效。")
             page_params_cache.clear()
             page_params_cache["last_known_model_id_for_params"] = (
                 current_ai_studio_model_id

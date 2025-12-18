@@ -16,7 +16,7 @@ async def setup_network_interception_and_scripts(context: AsyncBrowserContext):
         from config.settings import ENABLE_SCRIPT_INJECTION
 
         if not ENABLE_SCRIPT_INJECTION:
-            logger.info("脚本注入功能已禁用")
+            logger.debug("[Network] 脚本注入功能已禁用")
             return
 
         # 设置网络拦截

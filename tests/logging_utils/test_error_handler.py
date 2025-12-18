@@ -329,3 +329,80 @@ class TestIntegration:
             # Note: Exception handling is async, so we need to give it time to process
         finally:
             loop.set_exception_handler(original_handler)
+
+
+class TestShutdownSafety:
+    """Tests for Python shutdown safety - prevent ImportError crashes during shutdown."""
+
+    def test_handler_skips_when_meta_path_is_none(self):
+        """Test asyncio handler safely exits when sys.meta_path is None (shutdown)."""
+        import sys as real_sys
+
+        mock_loop = MagicMock(spec=asyncio.AbstractEventLoop)
+        context = {"message": "Task destroyed", "exception": RuntimeError("cleanup")}
+
+        # Save original value
+        original_meta_path = real_sys.meta_path
+
+        try:
+            # Simulate Python shutdown state
+            real_sys.meta_path = None
+
+            # This should return early without logging or raising
+            with patch("logging.getLogger") as mock_get_logger:
+                _asyncio_exception_handler(mock_loop, context)
+
+                # Logger should not be called during shutdown
+                mock_get_logger.return_value.error.assert_not_called()
+        finally:
+            # Restore original value
+            real_sys.meta_path = original_meta_path
+
+    def test_handler_works_normally_when_not_shutting_down(self):
+        """Test asyncio handler works normally when Python is not shutting down."""
+        mock_logger = MagicMock()
+        mock_loop = MagicMock(spec=asyncio.AbstractEventLoop)
+        context = {"message": "Normal error", "exception": ValueError("Test")}
+
+        with patch("logging.getLogger", return_value=mock_logger):
+            _asyncio_exception_handler(mock_loop, context)
+
+        # Logger should be called normally
+        mock_logger.error.assert_called_once()
+        call_args = mock_logger.error.call_args[0][0]
+        assert "[ASYNCIO EXCEPTION]" in call_args
+        assert "Normal error" in call_args
+
+    def test_handler_logs_exception_details(self):
+        """Test asyncio handler logs exception details when not shutting down."""
+        mock_logger = MagicMock()
+        mock_loop = MagicMock(spec=asyncio.AbstractEventLoop)
+        exception = ValueError("Detailed error message")
+        context = {"message": "Task failed", "exception": exception}
+
+        with patch("logging.getLogger", return_value=mock_logger):
+            _asyncio_exception_handler(mock_loop, context)
+
+        mock_logger.error.assert_called_once()
+        call_args = mock_logger.error.call_args[0][0]
+        # Handler logs the message and source
+        assert "Task failed" in call_args
+        assert "[ASYNCIO EXCEPTION]" in call_args
+
+    def test_handler_includes_task_name_when_available(self):
+        """Test asyncio handler includes task name when task is in context."""
+        mock_logger = MagicMock()
+        mock_loop = MagicMock(spec=asyncio.AbstractEventLoop)
+        mock_task = MagicMock()
+        mock_task.get_name.return_value = "test_task_name"
+        context = {
+            "message": "Task error",
+            "exception": RuntimeError("test"),
+            "task": mock_task,
+        }
+
+        with patch("logging.getLogger", return_value=mock_logger):
+            _asyncio_exception_handler(mock_loop, context)
+
+        call_args = mock_logger.error.call_args[0][0]
+        assert "test_task_name" in call_args

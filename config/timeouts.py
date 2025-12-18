@@ -57,3 +57,17 @@ PSEUDO_STREAM_DELAY = float(os.environ.get("PSEUDO_STREAM_DELAY", "0.01"))
 SUBMIT_BUTTON_ENABLE_TIMEOUT_MS = int(
     os.environ.get("SUBMIT_BUTTON_ENABLE_TIMEOUT_MS", "5000")
 )
+
+# --- 选择器超时配置 ---
+# 快速存在性检查超时 (用于 DOM 中元素是否存在的快速检测)
+SELECTOR_EXISTENCE_CHECK_TIMEOUT_MS = int(
+    os.environ.get("SELECTOR_EXISTENCE_CHECK_TIMEOUT_MS", "500")
+)
+# 元素可见性等待超时 (一般 UI 操作)
+SELECTOR_VISIBILITY_TIMEOUT_MS = int(
+    os.environ.get("SELECTOR_VISIBILITY_TIMEOUT_MS", "5000")
+)
+# 启动时关键选择器可见性超时 (允许稍长，因为页面可能仍在加载)
+STARTUP_SELECTOR_VISIBILITY_TIMEOUT_MS = int(
+    os.environ.get("STARTUP_SELECTOR_VISIBILITY_TIMEOUT_MS", "30000")
+)

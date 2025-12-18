@@ -6,6 +6,7 @@ import asyncio
 import multiprocessing
 import queue  # <-- FIX: Added missing import for queue.Empty
 import sys
+import time
 from asyncio import Lock, Queue
 from contextlib import asynccontextmanager
 from typing import Any, Awaitable, Callable
@@ -62,7 +63,7 @@ def _initialize_globals() -> None:
     state.model_switching_lock = Lock()
     state.params_cache_lock = Lock()
     auth_utils.initialize_keys()
-    state.logger.info("API keys and global locks initialized.")
+    state.logger.debug("API keys and global locks initialized.")
 
 
 def _initialize_proxy_settings() -> None:
@@ -79,11 +80,11 @@ def _initialize_proxy_settings() -> None:
         state.PLAYWRIGHT_PROXY_SETTINGS = {"server": proxy_server_env}
         if NO_PROXY_ENV:
             state.PLAYWRIGHT_PROXY_SETTINGS["bypass"] = NO_PROXY_ENV.replace(",", ";")
-        state.logger.info(
-            f"Playwright proxy settings configured: {state.PLAYWRIGHT_PROXY_SETTINGS}"
+        state.logger.debug(
+            f"[代理] 已配置: {state.PLAYWRIGHT_PROXY_SETTINGS.get('server', 'N/A')}"
         )
     else:
-        state.logger.info("No proxy configured for Playwright.")
+        state.logger.debug("[代理] 未配置")
 
 
 async def _start_stream_proxy() -> None:
@@ -96,16 +97,16 @@ async def _start_stream_proxy() -> None:
             or get_environment_variable("HTTPS_PROXY")
             or get_environment_variable("HTTP_PROXY")
         )
-        state.logger.info(
-            f"Starting STREAM proxy on port {port} with upstream proxy: {STREAM_PROXY_SERVER_ENV}"
-        )
+        state.logger.info(f"[系统] 启动流式代理服务 (端口: {port})")
         state.STREAM_QUEUE = multiprocessing.Queue()
         state.STREAM_PROCESS = multiprocessing.Process(
             target=stream.start,
             args=(state.STREAM_QUEUE, port, STREAM_PROXY_SERVER_ENV),
         )
         state.STREAM_PROCESS.start()
-        state.logger.info("STREAM proxy process started. Waiting for 'READY' signal...")
+        state.logger.debug(
+            "STREAM proxy process started. Waiting for 'READY' signal..."
+        )
 
         # Wait for the proxy to be ready
         try:
@@ -113,7 +114,7 @@ async def _start_stream_proxy() -> None:
             # Set a timeout to avoid waiting forever
             ready_signal = await asyncio.to_thread(state.STREAM_QUEUE.get, timeout=15)
             if ready_signal == "READY":
-                state.logger.info("Received 'READY' signal from STREAM proxy.")
+                state.logger.info("[系统] 流式代理就绪")
             else:
                 state.logger.warning(
                     f"Received unexpected signal from proxy: {ready_signal}"
@@ -129,10 +130,9 @@ async def _initialize_browser_and_page() -> None:
     """Initialize Playwright browser connection and page."""
     from playwright.async_api import async_playwright
 
-    state.logger.info("Starting Playwright...")
+    state.logger.debug("[内核] 正在启动 Playwright...")
     state.playwright_manager = await async_playwright().start()
     state.is_playwright_ready = True
-    state.logger.info("Playwright started.")
 
     ws_endpoint = get_environment_variable("CAMOUFOX_WS_ENDPOINT")
     launch_mode = get_environment_variable("LAUNCH_MODE", "unknown")
@@ -141,12 +141,12 @@ async def _initialize_browser_and_page() -> None:
         raise ValueError("CAMOUFOX_WS_ENDPOINT environment variable is missing.")
 
     if ws_endpoint:
-        state.logger.info(f"Connecting to browser at: {ws_endpoint}")
+        state.logger.debug(f"Connecting to browser at: {ws_endpoint}")
         state.browser_instance = await state.playwright_manager.firefox.connect(
             ws_endpoint, timeout=30000
         )
         state.is_browser_connected = True
-        state.logger.info(f"Connected to browser: {state.browser_instance.version}")
+        state.logger.info(f"[浏览器] 已连接 (版本: {state.browser_instance.version})")
 
         state.page_instance, state.is_page_ready = await _initialize_page_logic(
             state.browser_instance
@@ -154,7 +154,7 @@ async def _initialize_browser_and_page() -> None:
         if state.is_page_ready:
             await _handle_initial_model_state_and_storage(state.page_instance)
             await enable_temporary_chat_mode(state.page_instance)
-            state.logger.info("Page initialized successfully.")
+            state.logger.info("[系统] 页面初始化成功")
         else:
             state.logger.error("Page initialization failed.")
 
@@ -165,7 +165,7 @@ async def _initialize_browser_and_page() -> None:
 async def _shutdown_resources() -> None:
     """Gracefully shut down all resources."""
     logger = state.logger
-    logger.info("Shutting down resources...")
+    logger.debug("[系统] 正在关闭资源...")
 
     # Signal all streaming generators to exit immediately
     state.should_exit = True
@@ -185,29 +185,29 @@ async def _shutdown_resources() -> None:
                 state.STREAM_QUEUE.join_thread()
             except Exception:
                 pass
-        logger.info("STREAM proxy terminated.")
+        logger.debug("STREAM proxy terminated.")
 
     if state.worker_task and not state.worker_task.done():
-        logger.info("Cancelling worker task...")
+        logger.debug("Cancelling worker task...")
         state.worker_task.cancel()
         try:
             await asyncio.wait_for(state.worker_task, timeout=2.0)
-            logger.info("Worker task cancelled.")
+            logger.debug("Worker task cancelled.")
         except asyncio.TimeoutError:
             logger.warning("Worker task did not respond to cancellation within 2s.")
         except asyncio.CancelledError:
-            logger.info("Worker task cancelled.")
+            logger.debug("Worker task cancelled.")
 
     if state.page_instance:
         await _close_page_logic()
 
     if state.browser_instance and state.browser_instance.is_connected():
         await state.browser_instance.close()
-        logger.info("Browser connection closed.")
+        logger.debug("Browser connection closed.")
 
     if state.playwright_manager:
         await state.playwright_manager.stop()
-        logger.info("Playwright stopped.")
+        logger.debug("Playwright stopped.")
 
 
 @asynccontextmanager
@@ -225,7 +225,8 @@ async def lifespan(app: FastAPI):
     load_excluded_models(EXCLUDED_MODELS_FILENAME)
 
     state.is_initializing = True
-    logger.info("Starting AI Studio Proxy Server...")
+    startup_start_time = time.time()
+    logger.info("[系统] AI Studio 代理服务器启动中...")
 
     try:
         await _start_stream_proxy()
@@ -234,11 +235,12 @@ async def lifespan(app: FastAPI):
         launch_mode = get_environment_variable("LAUNCH_MODE", "unknown")
         if state.is_page_ready or launch_mode == "direct_debug_no_browser":
             state.worker_task = asyncio.create_task(queue_worker())
-            logger.info("Request processing worker started.")
+            logger.debug("Request processing worker started.")
         else:
             raise RuntimeError("Failed to initialize browser/page, worker not started.")
 
-        logger.info("Server startup complete.")
+        startup_duration = time.time() - startup_start_time
+        logger.info(f"[系统] 服务器启动完成 (耗时: {startup_duration:.2f}秒)")
         state.is_initializing = False
         yield
     except asyncio.CancelledError:
@@ -248,11 +250,11 @@ async def lifespan(app: FastAPI):
         await _shutdown_resources()
         raise RuntimeError(f"Application startup failed: {e}") from e
     finally:
-        logger.info("Shutting down server...")
+        logger.info("[系统] 服务器关闭中...")
         await _shutdown_resources()
         restore_original_streams(initial_stdout, initial_stderr)
         restore_original_streams(*original_streams)
-        logger.info("Server shutdown complete.")
+        logger.info("[系统] 服务器已关闭")
 
 
 class APIKeyAuthMiddleware(BaseHTTPMiddleware):

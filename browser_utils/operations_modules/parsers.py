@@ -167,9 +167,7 @@ async def _handle_model_list_response(response: Any):
             # 在登录流程中，静默处理，不输出干扰信息
             pass  # 静默处理，避免干扰用户输入
         else:
-            logger.info(
-                f"捕获到潜在的模型列表响应来自: {response.url} (状态: {response.status})"
-            )
+            logger.debug(f"[Network] 捕获模型列表响应 ({response.status} OK)")
         try:
             data = await response.json()
             models_array_container = None
@@ -179,26 +177,17 @@ async def _handle_model_list_response(response: Any):
                     and data[0]
                     and isinstance(data[0][0], list)
                 ):
-                    if not is_in_login_flow:
-                        logger.info(
-                            "检测到三层列表结构 data[0][0] is list. models_array_container 设置为 data[0]。"
-                        )
+                    # [Parse] log moved to count change check
                     models_array_container = data[0]
                 elif (
                     isinstance(data[0], list)
                     and data[0]
                     and isinstance(data[0][0], str)
                 ):
-                    if not is_in_login_flow:
-                        logger.info(
-                            "检测到两层列表结构 data[0][0] is str. models_array_container 设置为 data。"
-                        )
+                    # [Parse] log moved to count change check
                     models_array_container = data
                 elif isinstance(data[0], dict):
-                    if not is_in_login_flow:
-                        logger.info(
-                            "检测到根列表，元素为字典。直接使用 data 作为 models_array_container。"
-                        )
+                    # [Parse] log moved to count change check
                     models_array_container = data
                 else:
                     logger.warning(
@@ -456,16 +445,10 @@ async def _handle_model_list_response(response: Any):
                             f"Skipping entry due to invalid model_id_path: {model_id_path_str} from entry {str(entry_in_container)[:100]}"
                         )
 
-                # 输出排除模型汇总日志 (一次性)
-                if excluded_during_parse and not is_in_login_flow:
-                    count = len(excluded_during_parse)
-                    sample = excluded_during_parse[:3]
-                    if count <= 3:
-                        logger.info(f"已排除 {count} 个模型: {', '.join(sample)}")
-                    else:
-                        logger.info(
-                            f"已排除 {count} 个模型: {', '.join(sample)} 等 (+{count - 3} more)"
-                        )
+                # Excluded model log moved to count change check
+                excluded_count = (
+                    len(excluded_during_parse) if excluded_during_parse else 0
+                )
 
                 if new_parsed_list:
                     # 检查是否已经有通过网络拦截注入的模型
@@ -495,14 +478,28 @@ async def _handle_model_list_response(response: Any):
                         {"data": state.parsed_model_list, "object": "list"}
                     )
                     if DEBUG_LOGS_ENABLED:
-                        log_output = f"成功解析和更新模型列表。总共解析模型数: {len(state.parsed_model_list)}.\n"
-                        for i, item in enumerate(
-                            state.parsed_model_list[
-                                : min(3, len(state.parsed_model_list))
-                            ]
-                        ):
-                            log_output += f"Model {i + 1}: ID={item.get('id')}, Name={item.get('display_name')}, Temp={item.get('default_temperature')}, MaxTokDef={item.get('default_max_output_tokens')}, MaxTokSup={item.get('supported_max_output_tokens')}, TopP={item.get('default_top_p')}\n"
-                        logger.info(log_output)
+                        # Only print full model list on first load or count change
+                        previous_count = getattr(state, "_last_model_count", 0) or 0
+                        current_count = len(state.parsed_model_list)
+                        if previous_count != current_count or previous_count == 0:
+                            # Only show detailed parsing info when list changes
+                            if excluded_count > 0 and not is_in_login_flow:
+                                logger.debug(f"[Model] 已排除 {excluded_count} 个模型")
+                            log_output = f"[Model] 列表更新: {current_count} 个模型\n"
+                            for i, item in enumerate(
+                                state.parsed_model_list[
+                                    : min(3, len(state.parsed_model_list))
+                                ]
+                            ):
+                                log_output += f"  {i + 1}. {item.get('id')} (MaxTok={item.get('default_max_output_tokens')})\n"
+                            logger.debug(log_output.rstrip())
+                            state._last_model_count = current_count  # type: ignore
+                        else:
+                            logger.debug(f"[Model] 列表无变化 ({current_count} 个)")
+                    else:
+                        logger.info(
+                            f"[模型] 列表已更新 (共 {len(state.parsed_model_list)} 个模型)"
+                        )
                     if model_list_fetch_event and not model_list_fetch_event.is_set():
                         model_list_fetch_event.set()
                 elif not state.parsed_model_list:
