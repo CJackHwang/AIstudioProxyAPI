@@ -223,6 +223,22 @@ class ChatController(BaseController):
             except asyncio.CancelledError:
                 raise
             except Exception as confirm_err:
+                # 检查按钮/对话框是否已消失（操作已成功）
+                err_str = str(confirm_err).lower()
+                if "detached" in err_str or "not stable" in err_str:
+                    try:
+                        is_dialog_visible = await overlay_locator.is_visible(
+                            timeout=500
+                        )
+                        if not is_dialog_visible:
+                            self.logger.debug(
+                                "[Chat] 点击时对话框已消失，清空操作已成功"
+                            )
+                            return  # 直接返回，无需后续等待
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        pass
                 self.logger.warning(
                     f'首次点击"继续"失败，尝试 force 点击: {confirm_err}'
                 )
@@ -233,6 +249,22 @@ class ChatController(BaseController):
                 except asyncio.CancelledError:
                     raise
                 except Exception as confirm_force_err:
+                    # 再次检查对话框是否已消失
+                    force_err_str = str(confirm_force_err).lower()
+                    if "detached" in force_err_str or "not stable" in force_err_str:
+                        try:
+                            is_dialog_visible = await overlay_locator.is_visible(
+                                timeout=500
+                            )
+                            if not is_dialog_visible:
+                                self.logger.debug(
+                                    "[Chat] force 点击时对话框已消失，清空操作已成功"
+                                )
+                                return
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception:
+                            pass
                     self.logger.error(
                         f'"继续"按钮 force 点击仍失败: {confirm_force_err}'
                     )

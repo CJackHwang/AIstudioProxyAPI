@@ -270,3 +270,7 @@ pyright_utils_full.txt
 temp_*.txt
 temp_*.md
 utils_errors.txt
+# React frontend build artifacts and dependencies
+static/frontend/node_modules/
+static/frontend/coverage/
+static/frontend/dist/

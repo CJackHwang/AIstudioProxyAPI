@@ -1,12 +1,28 @@
 import asyncio
 import sys
 import types
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 # Note: Session-level cleanup hooks removed as they cause recursion issues on Windows
 # Rely on pytest-asyncio's natural cleanup and explicit fixture teardown instead
+
+
+@pytest.fixture(autouse=True)
+def global_mock_error_snapshots():
+    """
+    Global autouse fixture to prevent tests from creating real error snapshots.
+
+    This prevents the tests from flooding the errors_py directory with
+    test-generated error snapshots. The mock is applied at the lowest level
+    (debug_utils.save_error_snapshot_enhanced) to catch all calls.
+    """
+    with patch(
+        "browser_utils.debug_utils.save_error_snapshot_enhanced",
+        new_callable=AsyncMock,
+    ):
+        yield
 
 
 @pytest.fixture(autouse=True)

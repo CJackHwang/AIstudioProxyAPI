@@ -51,25 +51,21 @@ async def find_first_visible_locator(
     selectors: List[str],
     description: str = "element",
     timeout_per_selector: int = SELECTOR_VISIBILITY_TIMEOUT_MS,
-    existence_check_timeout: int = SELECTOR_EXISTENCE_CHECK_TIMEOUT_MS,
-    fallback_timeout_per_selector: int = SELECTOR_VISIBILITY_TIMEOUT_MS,
+    existence_check_timeout: int = SELECTOR_EXISTENCE_CHECK_TIMEOUT_MS,  # kept for API compat
+    fallback_timeout_per_selector: int = SELECTOR_VISIBILITY_TIMEOUT_MS,  # kept for API compat
 ) -> Tuple[Optional[Locator], Optional[str]]:
     """
     尝试多个选择器并返回第一个可见元素的 Locator。
 
-    使用三阶段优化策略:
-    1. 快速存在性检查 (count) - 避免对不存在的选择器等待完整超时
-    2. 可见性等待 - 仅对存在的元素进行完整超时等待
-    3. 回退模式 - 如果 DOM 未加载，使用较短超时依次尝试所有选择器
+    使用主动 DOM 监听策略 (Playwright MutationObserver):
+    - 对第一个选择器使用较长超时（主选择器，最可能成功）
+    - 后续选择器使用较短超时作为回退
 
     Args:
         page: Playwright 页面实例
         selectors: 要尝试的选择器列表（按优先级排序）
         description: 元素描述（用于日志记录）
-        timeout_per_selector: Phase 2 每个选择器的可见性等待超时时间（毫秒）
-        existence_check_timeout: Phase 1 存在性检查的超时时间（毫秒），默认500ms
-        fallback_timeout_per_selector: Phase 3 回退模式每个选择器的超时时间（毫秒），
-            默认5000ms，防止 N 个选择器 × 长超时 = 慢启动
+        timeout_per_selector: 主选择器的超时时间（毫秒）
 
     Returns:
         Tuple[Optional[Locator], Optional[str]]:
@@ -78,86 +74,52 @@ async def find_first_visible_locator(
     """
     from playwright.async_api import expect as expect_async
 
-    # Phase 1: 快速存在性检查，找出存在的选择器
-    existing_selectors: List[str] = []
-    phase1_timeouts: List[str] = []
-    for selector in selectors:
-        try:
-            locator = page.locator(selector)
-            # 快速检查元素是否存在于 DOM 中
-            count = await asyncio.wait_for(
-                locator.count(),
-                timeout=existence_check_timeout / 1000,  # 转换为秒
-            )
-            if count > 0:
-                existing_selectors.append(selector)
-                logger.debug(
-                    f"[Selector] {description}: '{selector}' 存在于 DOM ({count}个)"
-                )
-            else:
-                logger.debug(
-                    f"[Selector] {description}: '{selector}' 不存在于 DOM (count=0)"
-                )
-        except asyncio.CancelledError:
-            raise
-        except asyncio.TimeoutError:
-            phase1_timeouts.append(selector)
-            logger.debug(
-                f"[Selector] {description}: '{selector}' 存在性检查超时 "
-                f"({existence_check_timeout}ms)"
-            )
-        except Exception as e:
-            logger.debug(
-                f"[Selector] {description}: '{selector}' 存在性检查异常: {type(e).__name__}"
-            )
+    if not selectors:
+        logger.warning(f"[Selector] {description}: 没有提供选择器")
+        return None, None
 
-    # 如果有超时，记录汇总日志
-    if phase1_timeouts:
+    # 主选择器使用较长超时（最可能成功，值得等待）
+    primary_selector = selectors[0]
+    primary_timeout = timeout_per_selector
+
+    # 回退选择器使用较短超时
+    fallback_timeout = min(2000, timeout_per_selector // 2)
+
+    logger.debug(
+        f"[Selector] {description}: 开始主动监听 '{primary_selector}' (超时: {primary_timeout}ms)"
+    )
+
+    # 尝试主选择器（使用 Playwright 的 MutationObserver 主动监听）
+    try:
+        locator = page.locator(primary_selector)
+        await expect_async(locator).to_be_visible(timeout=primary_timeout)
+        logger.debug(f"[Selector] {description}: '{primary_selector}' 元素可见")
+        return locator, primary_selector
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
         logger.debug(
-            f"[Selector] {description}: Phase 1 完成 - "
-            f"找到 {len(existing_selectors)} 个, 超时 {len(phase1_timeouts)} 个"
+            f"[Selector] {description}: '{primary_selector}' 超时 ({primary_timeout}ms) - {type(e).__name__}"
         )
 
-    # Phase 2: 对存在的选择器进行可见性等待
-    for selector in existing_selectors:
-        try:
-            locator = page.locator(selector)
-            await expect_async(locator).to_be_visible(timeout=timeout_per_selector)
-            logger.debug(f"[Selector] {description}: '{selector}' 元素可见")
-            return locator, selector
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            logger.debug(
-                f"[Selector] {description}: '{selector}' 可见性等待失败 "
-                f"({timeout_per_selector}ms) - {type(e).__name__}"
-            )
-
-    # Phase 3: 回退 - 如果快速检查都失败，使用较短超时依次等待所有选择器
-    # 这处理了元素尚未加载到 DOM 的情况 (例如页面仍在渲染)
-    # 使用 fallback_timeout_per_selector (默认5s) 而非 timeout_per_selector (可能30s)
-    # 以避免 N 个选择器 × 长超时 = 慢启动
-    if not existing_selectors and selectors:
+    # 回退到其他选择器
+    if len(selectors) > 1:
         logger.debug(
-            f"[Selector] {description}: Phase 1 未找到任何元素，进入 Phase 3 回退模式 "
-            f"(每个选择器超时: {fallback_timeout_per_selector}ms, 共 {len(selectors)} 个)"
+            f"[Selector] {description}: 尝试 {len(selectors) - 1} 个回退选择器 (超时: {fallback_timeout}ms)"
         )
-        for idx, selector in enumerate(selectors, 1):
+        for idx, selector in enumerate(selectors[1:], 2):
             try:
                 locator = page.locator(selector)
-                await expect_async(locator).to_be_visible(
-                    timeout=fallback_timeout_per_selector
-                )
+                await expect_async(locator).to_be_visible(timeout=fallback_timeout)
                 logger.debug(
                     f"[Selector] {description}: '{selector}' 元素可见 (回退 {idx}/{len(selectors)})"
                 )
                 return locator, selector
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.debug(
-                    f"[Selector] {description}: '{selector}' 回退超时 "
-                    f"({fallback_timeout_per_selector}ms, {idx}/{len(selectors)}) - {type(e).__name__}"
+                    f"[Selector] {description}: '{selector}' 超时 (回退 {idx}/{len(selectors)})"
                 )
 
     logger.warning(

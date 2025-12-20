@@ -239,7 +239,28 @@ def test_setup_server_logging_websocket_handler_valid(
 
         # Verify WebSocket handler was created and configured
         MockWSHandler.assert_called_once_with(mock_ws_manager)
+        # WebSocket handler should use the same log level as requested
         mock_ws_handler.setLevel.assert_called_once_with(logging.INFO)
+
+
+def test_setup_server_logging_websocket_handler_debug_level(
+    mock_logger, mock_ws_manager, mock_dirs, mock_file_ops
+):
+    """Test WebSocket handler respects DEBUG log level."""
+    with patch("logging_utils.setup.WebSocketLogHandler") as MockWSHandler:
+        mock_ws_handler = MagicMock()
+        mock_ws_handler.level = logging.NOTSET
+        MockWSHandler.return_value = mock_ws_handler
+
+        setup_server_logging(
+            logger_instance=mock_logger,
+            log_ws_manager=mock_ws_manager,
+            log_level_name="DEBUG",
+            redirect_print_str="false",
+        )
+
+        # WebSocket handler should use DEBUG level (not hardcoded INFO)
+        mock_ws_handler.setLevel.assert_called_once_with(logging.DEBUG)
 
 
 def test_setup_server_logging_websocket_handler_none(

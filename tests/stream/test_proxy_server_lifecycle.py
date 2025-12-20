@@ -433,8 +433,8 @@ async def test_start_logs_server_address(proxy_server):
 
         await asyncio.sleep(0.2)
 
-        # Verify logger.info was called with address
-        proxy_server.logger.info.assert_called()
+        # Verify logger.debug was called with address (implementation uses debug, not info)
+        proxy_server.logger.debug.assert_called()
 
         task.cancel()
         try:

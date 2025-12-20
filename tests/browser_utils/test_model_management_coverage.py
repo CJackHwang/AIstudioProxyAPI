@@ -1012,6 +1012,9 @@ async def test_handle_initial_reload_retry_all_fail(mock_page):
         ),
         patch("browser_utils.models.startup.expect_async") as mock_expect,
         patch("browser_utils.operations.save_error_snapshot", new_callable=AsyncMock),
+        patch(
+            "browser_utils.models.startup.asyncio.sleep", new_callable=AsyncMock
+        ),  # Skip retry delays
     ):
         mock_expect.return_value.to_be_visible = AsyncMock()
 

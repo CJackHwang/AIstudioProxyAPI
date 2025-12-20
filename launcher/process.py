@@ -90,7 +90,7 @@ class CamoufoxProcessManager:
         self.camoufox_proc = None
         self.captured_ws_endpoint = None
 
-    def start(  # pragma: no cover
+    def start(
         self,
         final_launch_mode,
         effective_active_auth_json_path,

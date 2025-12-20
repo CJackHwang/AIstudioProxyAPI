@@ -12,7 +12,8 @@ from browser_utils.thinking_normalizer import (
 )
 from config import (
     CLICK_TIMEOUT_MS,
-    DEFAULT_THINKING_LEVEL,
+    DEFAULT_THINKING_LEVEL_FLASH,
+    DEFAULT_THINKING_LEVEL_PRO,
     ENABLE_THINKING_MODE_TOGGLE_SELECTOR,
     SET_THINKING_BUDGET_TOGGLE_SELECTOR,
     THINKING_BUDGET_INPUT_SELECTOR,
@@ -20,6 +21,8 @@ from config import (
     THINKING_BUDGET_TOGGLE_PARENT_SELECTOR,
     THINKING_LEVEL_OPTION_HIGH_SELECTOR,
     THINKING_LEVEL_OPTION_LOW_SELECTOR,
+    THINKING_LEVEL_OPTION_MEDIUM_SELECTOR,
+    THINKING_LEVEL_OPTION_MINIMAL_SELECTOR,
     THINKING_LEVEL_SELECT_SELECTOR,
     THINKING_MODE_TOGGLE_OLD_ROOT_SELECTOR,
     THINKING_MODE_TOGGLE_PARENT_SELECTOR,
@@ -35,7 +38,8 @@ class ThinkingCategory(Enum):
     NON_THINKING = auto()  # No thinking UI at all (gemini-2.0-*, gemini-1.5-*)
     THINKING_FLASH = auto()  # Toggleable thinking mode + budget (gemini-2.5-flash*)
     THINKING_PRO = auto()  # Always-on thinking, budget toggle/slider (gemini-2.5-pro*)
-    THINKING_LEVEL = auto()  # Level dropdown only (gemini-3-pro*)
+    THINKING_LEVEL = auto()  # 2-level dropdown only (gemini-3-pro*)
+    THINKING_LEVEL_FLASH = auto()  # 4-level dropdown (gemini-3-flash*)
 
 
 class ThinkingController(BaseController):
@@ -66,7 +70,8 @@ class ThinkingController(BaseController):
         self.logger.debug(f"[Thinking] 指令: {format_directive_log(directive)}")
 
         uses_level = (
-            category == ThinkingCategory.THINKING_LEVEL
+            category
+            in (ThinkingCategory.THINKING_LEVEL, ThinkingCategory.THINKING_LEVEL_FLASH)
             and await self._has_thinking_dropdown()
         )
 
@@ -74,7 +79,7 @@ class ThinkingController(BaseController):
             try:
                 if isinstance(rv, str):
                     rs = rv.strip().lower()
-                    if rs in ["high", "low", "-1"]:
+                    if rs in ["high", "medium", "low", "minimal", "-1"]:
                         return True
                     if rs == "none":
                         return False
@@ -109,7 +114,10 @@ class ThinkingController(BaseController):
 
         if not desired_enabled:
             # 跳过无预算开关的模型 (gemini-3-pro-preview 系列使用思考等级而非预算)
-            if category == ThinkingCategory.THINKING_LEVEL:
+            if category in (
+                ThinkingCategory.THINKING_LEVEL,
+                ThinkingCategory.THINKING_LEVEL_FLASH,
+            ):
                 return
             # Flash/Flash Lite 模型：关闭主思考开关后，预算开关会被隐藏，无需再操作
             # 这避免了尝试操作不可见元素导致的 5 秒超时
@@ -129,23 +137,69 @@ class ThinkingController(BaseController):
         if uses_level:
             rv = reasoning_effort
             level_to_set = None
+            is_flash_4_level = category == ThinkingCategory.THINKING_LEVEL_FLASH
+
             if isinstance(rv, str):
                 rs = rv.strip().lower()
-                if rs == "low":
-                    level_to_set = "low"
-                elif rs in ["high", "none", "-1"]:
-                    level_to_set = "high"
+                # 直接匹配字符串等级
+                if is_flash_4_level:
+                    # Gemini 3 Flash: 4 levels (minimal, low, medium, high)
+                    if rs in ["minimal", "low", "medium", "high"]:
+                        level_to_set = rs
+                    elif rs in ["none", "-1"]:
+                        level_to_set = "high"
+                    else:
+                        try:
+                            v = int(rs)
+                            if v >= 16000:
+                                level_to_set = "high"
+                            elif v >= 8000:
+                                level_to_set = "medium"
+                            elif v >= 1024:
+                                level_to_set = "low"
+                            else:
+                                level_to_set = "minimal"
+                        except Exception:
+                            level_to_set = None
                 else:
-                    try:
-                        v = int(rs)
-                        level_to_set = "high" if v >= 8000 else "low"
-                    except Exception:
-                        level_to_set = None
+                    # Gemini 3 Pro: 2 levels (low, high)
+                    if rs == "low" or rs == "minimal":
+                        level_to_set = "low"
+                    elif rs in ["high", "medium", "none", "-1"]:
+                        level_to_set = "high"
+                    else:
+                        try:
+                            v = int(rs)
+                            level_to_set = "high" if v >= 8000 else "low"
+                        except Exception:
+                            level_to_set = None
             elif isinstance(rv, int):
-                level_to_set = "high" if rv >= 8000 or rv == -1 else "low"
+                if is_flash_4_level:
+                    # Gemini 3 Flash: 4 levels
+                    if rv >= 16000 or rv == -1:
+                        level_to_set = "high"
+                    elif rv >= 8000:
+                        level_to_set = "medium"
+                    elif rv >= 1024:
+                        level_to_set = "low"
+                    else:
+                        level_to_set = "minimal"
+                else:
+                    # Gemini 3 Pro: 2 levels
+                    level_to_set = "high" if rv >= 8000 or rv == -1 else "low"
 
             if level_to_set is None and rv is None:
-                level_to_set = DEFAULT_THINKING_LEVEL
+                # Use model-specific default
+                level_to_set = (
+                    DEFAULT_THINKING_LEVEL_FLASH
+                    if is_flash_4_level
+                    else DEFAULT_THINKING_LEVEL_PRO
+                )
+                # Ensure Pro only gets valid levels (high/low)
+                if not is_flash_4_level and level_to_set not in ["high", "low"]:
+                    level_to_set = (
+                        "high" if level_to_set in ["high", "medium"] else "low"
+                    )
 
             if level_to_set is None:
                 self.logger.info("无法解析等级，保持当前等级。")
@@ -230,14 +284,18 @@ class ThinkingController(BaseController):
 
         Categories:
         - NON_THINKING: No thinking UI (gemini-2.0-*, gemini-1.5-*)
-        - THINKING_FLASH: Toggleable thinking mode + budget (gemini-2.5-flash*)
+        - THINKING_FLASH: Toggleable thinking mode + budget (gemini-2.5-flash*, gemini-flash-latest)
         - THINKING_PRO: Always-on thinking, budget configurable (gemini-2.5-pro*)
-        - THINKING_LEVEL: Level dropdown only (gemini-3-pro*)
+        - THINKING_LEVEL: 2-level dropdown (gemini-3-pro*)
+        - THINKING_LEVEL_FLASH: 4-level dropdown (gemini-3-flash*)
         """
         if not model_id:
             return ThinkingCategory.NON_THINKING
 
         mid = model_id.lower()
+
+        if "gemini-3" in mid and "flash" in mid:
+            return ThinkingCategory.THINKING_LEVEL_FLASH
 
         if "gemini-3" in mid and "pro" in mid:
             return ThinkingCategory.THINKING_LEVEL
@@ -248,16 +306,32 @@ class ThinkingController(BaseController):
         if "gemini-2.5-flash" in mid:
             return ThinkingCategory.THINKING_FLASH
 
+        # gemini-flash-latest and gemini-flash-lite-latest behave like 2.5 flash
+        if mid == "gemini-flash-latest" or mid == "gemini-flash-lite-latest":
+            return ThinkingCategory.THINKING_FLASH
+
         return ThinkingCategory.NON_THINKING
 
     async def _set_thinking_level(
         self, level: str, check_client_disconnected: Callable
     ):
-        target_option_selector = (
-            THINKING_LEVEL_OPTION_HIGH_SELECTOR
-            if level.lower() == "high"
-            else THINKING_LEVEL_OPTION_LOW_SELECTOR
-        )
+        """Set thinking level in the dropdown.
+
+        Supports: high, medium, low, minimal
+        (Gemini 3 Pro only supports high/low, Flash supports all 4)
+        """
+        level_lower = level.lower()
+        if level_lower == "high":
+            target_option_selector = THINKING_LEVEL_OPTION_HIGH_SELECTOR
+        elif level_lower == "medium":
+            target_option_selector = THINKING_LEVEL_OPTION_MEDIUM_SELECTOR
+        elif level_lower == "low":
+            target_option_selector = THINKING_LEVEL_OPTION_LOW_SELECTOR
+        elif level_lower == "minimal":
+            target_option_selector = THINKING_LEVEL_OPTION_MINIMAL_SELECTOR
+        else:
+            # Fallback to high for unknown levels
+            target_option_selector = THINKING_LEVEL_OPTION_HIGH_SELECTOR
         try:
             trigger = self.page.locator(THINKING_LEVEL_SELECT_SELECTOR)
             await expect_async(trigger).to_be_visible(timeout=5000)

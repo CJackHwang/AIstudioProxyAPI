@@ -16,7 +16,7 @@ import logging
 import os
 import traceback
 from asyncio import Lock, Queue
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Protocol, Tuple, Union
 
@@ -43,32 +43,32 @@ class SupportsLockQuery(Protocol):
 logger = logging.getLogger("AIStudioProxyServer")
 
 
-def get_texas_timestamp() -> Tuple[str, str]:
+def get_local_timestamp() -> Tuple[str, str]:
     """
-    Get current timestamp in both ISO format and human-readable Texas time.
+    Get current timestamp in both ISO format and human-readable local time.
 
-    Texas is in Central Time Zone (UTC-6 in standard time, UTC-5 in daylight time).
+    Uses the system's local timezone automatically.
 
     Returns:
         Tuple[str, str]: (iso_format, human_readable_format)
-        Example: ("2025-11-21T18:37:32.440", "2025-11-21 18:37:32.440 CST")
+        Example: ("2025-12-20T00:53:35.440", "2025-12-20 00:53:35.440 JST")
     """
-    # Get current UTC time
-    utc_now = datetime.now(timezone.utc)
+    # Get current local time
+    local_now = datetime.now().astimezone()
 
-    # Convert to Central Time (approximation using fixed offset)
-    # Note: For production, use pytz for accurate DST handling
-    central_offset = timedelta(hours=-6)  # CST (standard time)
-    # TODO: Add DST detection if needed
-    central_time = utc_now + central_offset
+    # ISO format (without timezone suffix for directory naming)
+    iso_format = local_now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
 
-    # ISO format
-    iso_format = central_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
-
-    # Human-readable format
-    human_format = central_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + " CST"
+    # Human-readable format with timezone abbreviation
+    human_format = (
+        local_now.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + " " + local_now.strftime("%Z")
+    )
 
     return iso_format, human_format
+
+
+# Keep alias for backwards compatibility
+get_texas_timestamp = get_local_timestamp
 
 
 async def capture_dom_structure(page: AsyncPage) -> str:
@@ -616,6 +616,75 @@ async def save_comprehensive_snapshot(
         except Exception as meta_err:
             logger.error(f"Metadata failed: {meta_err}")
 
+        # === 9. Human-Readable SUMMARY.txt ===
+        summary_path = snapshot_dir / "SUMMARY.txt"
+        try:
+            summary_lines = [
+                "=" * 70,
+                "ERROR SNAPSHOT SUMMARY",
+                "=" * 70,
+                "",
+                f"Timestamp: {human_timestamp}",
+                f"Request ID: {req_id}",
+                f"Error Name: {error_name}",
+                f"Error Stage: {error_stage or 'N/A'}",
+                "Snapshot Type: COMPREHENSIVE",
+                "",
+            ]
+
+            # Exception info
+            if error_exception:
+                summary_lines.extend(
+                    [
+                        "-" * 70,
+                        "EXCEPTION",
+                        "-" * 70,
+                        f"Type: {type(error_exception).__name__}",
+                        f"Message: {error_exception}",
+                        "",
+                    ]
+                )
+
+            # Application state summary
+            summary_lines.extend(
+                [
+                    "-" * 70,
+                    "QUICK REFERENCE",
+                    "-" * 70,
+                    f"Headless Mode: {os.environ.get('HEADLESS', 'true')}",
+                    f"Default Model: {os.environ.get('DEFAULT_MODEL', 'unknown')}",
+                    "",
+                    "-" * 70,
+                    "FILES IN THIS SNAPSHOT",
+                    "-" * 70,
+                    "  SUMMARY.txt        - This file (start here!)",
+                    "  screenshot.png     - Full page screenshot",
+                    "  dom_dump.html      - Complete HTML source",
+                    "  dom_structure.txt  - Human-readable DOM tree",
+                    "  console_logs.txt   - Browser console output",
+                    "  network_requests.json - Network activity",
+                    "  playwright_state.json - Page/locator states",
+                    "  llm.json           - System context for AI analysis",
+                    "  metadata.json      - Full error details",
+                    "",
+                    "-" * 70,
+                    "DEBUGGING TIPS",
+                    "-" * 70,
+                    "1. Check screenshot.png for visual state",
+                    "2. Search dom_structure.txt for element issues",
+                    "3. Review console_logs.txt for JS errors",
+                    "4. Check network_requests.json for API failures",
+                    "",
+                    "=" * 70,
+                ]
+            )
+
+            with open(summary_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(summary_lines))
+            logger.info("SUMMARY.txt saved")
+        except Exception as summary_err:
+            logger.error(f"SUMMARY.txt failed: {summary_err}")
+
         logger.info(f"Comprehensive snapshot complete: {snapshot_dir.name}")
         return str(snapshot_dir)
 
@@ -667,7 +736,16 @@ async def save_error_snapshot_enhanced(
         or page_to_snapshot.is_closed()
     ):
         logger.warning(
-            f"[{req_id}] Cannot save snapshot ({base_error_name}), browser/page unavailable."
+            f"[{req_id}] 浏览器/页面不可用 ({base_error_name})，保存最小化快照..."
+        )
+        # Fallback to minimal snapshot
+        from browser_utils.operations_modules.errors import save_minimal_snapshot
+
+        await save_minimal_snapshot(
+            error_name=base_error_name,
+            req_id=req_id,
+            error_exception=error_exception,
+            additional_context=additional_context,
         )
         return
 

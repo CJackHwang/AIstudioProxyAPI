@@ -714,8 +714,8 @@ async def test_setup_disconnect_monitoring_client_stays_connected():
             req_id, request, result_future
         )
 
-        # Wait for multiple checks
-        await asyncio.sleep(1.2)  # Allow 3+ checks (0.3s sleep each)
+        # Wait for multiple checks (0.3s sleep each in the monitoring loop)
+        await asyncio.sleep(1.2)
 
         # 验证: 进行了多次检查 (line 83 executed multiple times)
         assert check_count >= 3

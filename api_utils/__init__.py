@@ -19,8 +19,6 @@ from .routers import (
     cancel_request,
     chat_completions,
     get_api_info,
-    get_css,
-    get_js,
     get_queue_status,
     health_check,
     list_models,
@@ -49,10 +47,8 @@ from .utils_ext.validation import validate_chat_request
 __all__ = [
     # 应用初始化
     "create_app",
-    # 路由处理器
+    # 路由処理器
     "read_index",
-    "get_css",
-    "get_js",
     "get_api_info",
     "health_check",
     "list_models",

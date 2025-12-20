@@ -132,7 +132,22 @@ class InputController(BaseController):
                 self.logger.debug("[Input] 尝试点击提交按钮...")
                 # 提交前再处理一次潜在对话框，避免按钮点击被拦截
                 await self._handle_post_upload_dialog()
-                await submit_button_locator.click(timeout=5000)
+                # 先尝试关闭任何 tooltip 遮罩 (直接从 DOM 移除)
+                await self._dismiss_tooltip_overlays()
+                try:
+                    await submit_button_locator.click(timeout=5000)
+                except Exception:
+                    # 如果普通点击失败（可能被 tooltip 遮挡），使用 JavaScript 直接点击
+                    self.logger.debug("[Input] 普通点击失败，尝试 JavaScript 点击...")
+                    js_clicked = await self._js_click_submit_button(
+                        submit_button_locator
+                    )
+                    if not js_clicked:
+                        # 最后尝试 force 点击
+                        self.logger.debug(
+                            "[Input] JavaScript 点击失败，尝试 force 点击..."
+                        )
+                        await submit_button_locator.click(timeout=5000, force=True)
                 self.logger.debug("[Input] 提交按钮点击完成")
                 button_clicked = True
             except Exception as click_err:
@@ -333,6 +348,57 @@ class InputController(BaseController):
             raise
         except Exception:
             pass
+
+    async def _dismiss_tooltip_overlays(self):
+        """关闭可能阻挡点击的 tooltip 弹出层 - 直接从 DOM 移除。"""
+        try:
+            # 首先尝试移动鼠标让 tooltip 自然消失
+            await self.page.mouse.move(0, 0)
+            await asyncio.sleep(0.1)
+
+            # 然后用 JavaScript 强制删除所有可能阻挡的 tooltip/overlay 元素
+            removed_count = await self.page.evaluate("""
+                () => {
+                    const selectors = [
+                        '.mdc-tooltip',
+                        '.mat-mdc-tooltip',
+                        '.mdc-tooltip__surface',
+                        '.mat-mdc-tooltip-surface',
+                        '.cdk-overlay-pane:has(.mdc-tooltip)',
+                        '.mat-tooltip-panel',
+                        '[role="tooltip"]'
+                    ];
+                    let count = 0;
+                    for (const sel of selectors) {
+                        const elements = document.querySelectorAll(sel);
+                        elements.forEach(el => {
+                            el.remove();
+                            count++;
+                        });
+                    }
+                    return count;
+                }
+            """)
+            if removed_count > 0:
+                self.logger.debug(f"[Input] 移除了 {removed_count} 个 tooltip 元素")
+                await asyncio.sleep(0.1)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger.debug(f"[Input] tooltip 清理时发生异常: {e}")
+
+    async def _js_click_submit_button(self, submit_button_locator) -> bool:
+        """使用 JavaScript 直接触发提交按钮点击事件。"""
+        try:
+            # 获取按钮元素并用 JS 点击
+            await submit_button_locator.evaluate("el => el.click()")
+            self.logger.debug("[Input] JavaScript 点击提交按钮成功")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger.debug(f"[Input] JavaScript 点击失败: {e}")
+            return False
 
     async def _try_enter_submit(
         self, prompt_textarea_locator, check_client_disconnected: Callable

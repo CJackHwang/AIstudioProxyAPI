@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -153,24 +153,32 @@ async def test_list_models_reload_timeout(mock_env):
     page_instance.is_closed.return_value = False
     page_instance.reload = AsyncMock()
 
-    # Mock wait() 挂起足够长时间,导致 wait_for 超时 (wait_for timeout is 10s)
-    async def mock_wait_forever():
-        await asyncio.sleep(
-            15
-        )  # Longer than wait_for timeout (10s) but shorter than pytest timeout
+    # Mock wait() to sleep briefly, but longer than the mocked timeout
+    async def mock_wait_longer_than_timeout():
+        await asyncio.sleep(0.2)  # Longer than mocked 0.1s timeout
 
-    model_list_fetch_event.wait = mock_wait_forever
+    model_list_fetch_event.wait = mock_wait_longer_than_timeout
 
     parsed_model_list = [{"id": "gemini-1.5-pro", "object": "model"}]
     excluded_model_ids = set()
 
-    response = await list_models(
-        logger=logger,
-        model_list_fetch_event=model_list_fetch_event,
-        page_instance=page_instance,
-        parsed_model_list=parsed_model_list,
-        excluded_model_ids=excluded_model_ids,
-    )
+    # Patch the wait_for timeout to be very short for testing
+    with patch(
+        "api_utils.routers.models.asyncio.wait_for", wraps=asyncio.wait_for
+    ) as mock_wait_for:
+        # Override wait_for to use a short timeout
+        async def short_timeout_wait_for(coro, timeout):
+            return await asyncio.wait_for(coro, timeout=0.1)
+
+        mock_wait_for.side_effect = short_timeout_wait_for
+
+        response = await list_models(
+            logger=logger,
+            model_list_fetch_event=model_list_fetch_event,
+            page_instance=page_instance,
+            parsed_model_list=parsed_model_list,
+            excluded_model_ids=excluded_model_ids,
+        )
 
     # 验证: 错误被记录
     assert logger.error.called

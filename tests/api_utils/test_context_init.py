@@ -46,11 +46,10 @@ class TestInitializeRequestContext:
         with patch("api_utils.server_state.state.logger", MagicMock()) as mock_logger:
             context = await initialize_request_context("req1", request)
 
-            # Verify logging
-            assert mock_logger.info.call_count == 2
-            log_calls = [call[0][0] for call in mock_logger.info.call_args_list]
-            assert any("开始处理请求" in msg for msg in log_calls)
-            assert any("Stream: True" in msg for msg in log_calls)
+            # Verify logging - now uses debug, not info
+            assert mock_logger.debug.call_count >= 1
+            log_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
+            assert any("[Request]" in msg for msg in log_calls)
 
             # Verify context fields
             assert context["is_streaming"] is True
@@ -88,9 +87,9 @@ class TestInitializeRequestContext:
             assert context["is_streaming"] is False
             assert context["requested_model"] == "gemini-1.5-flash"
 
-            # Verify logging
-            log_calls = [call[0][0] for call in mock_logger.info.call_args_list]
-            assert any("Stream: False" in msg for msg in log_calls)
+            # Verify logging uses debug
+            log_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
+            assert any("Stream=False" in msg for msg in log_calls)
 
     @pytest.mark.asyncio
     async def test_different_model_name(
@@ -112,8 +111,8 @@ class TestInitializeRequestContext:
 
             assert context["requested_model"] == "gemini-2.0-flash-thinking-exp"
 
-            # Verify logging includes model name
-            log_calls = [call[0][0] for call in mock_logger.info.call_args_list]
+            # Verify logging includes model name in debug call
+            log_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
             assert any("gemini-2.0-flash-thinking-exp" in msg for msg in log_calls)
 
     @pytest.mark.asyncio
@@ -302,16 +301,13 @@ class TestInitializeRequestContext:
         with patch("api_utils.server_state.state.logger", MagicMock()) as mock_logger:
             await initialize_request_context("test-req-abc", request)
 
-            # Verify log messages
-            log_calls = [call[0][0] for call in mock_logger.info.call_args_list]
+            # Verify log messages use debug, not info
+            log_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
 
-            # First log should indicate request processing started
-            assert any("开始处理请求" in msg for msg in log_calls)
-
-            # Second log should include model and stream parameters
-            param_log = log_calls[1]
-            assert "Model: test-model-123" in param_log
-            assert "Stream: True" in param_log
+            # Log should include [Request] tag and model/stream parameters
+            assert any("[Request]" in msg for msg in log_calls)
+            assert any("test-model-123" in msg for msg in log_calls)
+            assert any("Stream=True" in msg for msg in log_calls)
 
     @pytest.mark.asyncio
     async def test_locks_are_real_asyncio_locks(

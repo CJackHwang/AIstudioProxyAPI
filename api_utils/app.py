@@ -332,24 +332,26 @@ def create_app() -> FastAPI:
 
     from .routers import (
         add_api_key,
+        auth_files_router,
         cancel_request,
         chat_completions,
         delete_api_key,
         get_api_info,
         get_api_keys,
-        get_css,
-        get_js,
         get_queue_status,
         health_check,
         list_models,
+        model_capabilities_router,
+        ports_router,
+        proxy_router,
         read_index,
+        serve_react_assets,
         test_api_key,
         websocket_log_endpoint,
     )
 
     app.get("/", response_class=FileResponse)(read_index)
-    app.get("/webui.css")(get_css)
-    app.get("/webui.js")(get_js)
+    app.get("/assets/{filename:path}")(serve_react_assets)  # React built assets
     app.get("/api/info")(get_api_info)
     app.get("/health")(health_check)
     app.get("/v1/models")(list_models)
@@ -357,6 +359,20 @@ def create_app() -> FastAPI:
     app.post("/v1/cancel/{req_id}")(cancel_request)
     app.get("/v1/queue")(get_queue_status)
     app.websocket("/ws/logs")(websocket_log_endpoint)
+
+    # Model capabilities endpoint (single source of truth)
+    app.include_router(model_capabilities_router)
+
+    # Proxy, auth, and port management routers
+    app.include_router(proxy_router)
+    app.include_router(auth_files_router)
+    app.include_router(ports_router)
+
+    # Server control and helper routers
+    from api_utils.routers import helper_router, server_router
+
+    app.include_router(server_router)
+    app.include_router(helper_router)
 
     # API密钥管理端点
     app.get("/api/keys")(get_api_keys)

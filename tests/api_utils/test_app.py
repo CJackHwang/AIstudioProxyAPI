@@ -171,13 +171,13 @@ async def test_lifespan_startup_shutdown():
             mock_load_models.assert_called_once()
             mock_start_proxy.assert_called_once()
             mock_init_browser.assert_called_once()
-            mock_logger.info.assert_any_call("Starting AI Studio Proxy Server...")
-            mock_logger.info.assert_any_call("Server startup complete.")
+            # Check actual log messages from the implementation
+            mock_logger.info.assert_any_call("[系统] AI Studio 代理服务器启动中...")
 
         # Verify shutdown actions
         mock_shutdown.assert_called_once()
         mock_restore_streams.assert_called()
-        mock_logger.info.assert_any_call("Server shutdown complete.")
+        mock_logger.info.assert_any_call("[系统] 服务器已关闭")
 
 
 @pytest.mark.asyncio
@@ -704,7 +704,7 @@ Strategy: Test edge cases for proxy settings and middleware path matching.
 def test_initialize_proxy_settings_no_proxy_configured():
     """
     测试场景: 完全没有配置任何代理
-    预期: 记录 "No proxy configured" 日志 (line 86)
+    预期: 记录 "[代理] 未配置" 日志 (line 87)
     """
     state.PLAYWRIGHT_PROXY_SETTINGS = None
     mock_logger = MagicMock()
@@ -727,8 +727,8 @@ def test_initialize_proxy_settings_no_proxy_configured():
     # 验证: PLAYWRIGHT_PROXY_SETTINGS 应该为 None
     assert state.PLAYWRIGHT_PROXY_SETTINGS is None
 
-    # 验证: 记录了 "No proxy configured" 日志 (line 86)
-    mock_logger.info.assert_any_call("No proxy configured for Playwright.")
+    # 验证: 记录了 "[代理] 未配置" 日志 (line 87)
+    mock_logger.debug.assert_any_call("[代理] 未配置")
 
 
 @pytest.mark.asyncio

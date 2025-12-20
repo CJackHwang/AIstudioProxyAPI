@@ -28,6 +28,16 @@ def mock_constants():
         yield
 
 
+@pytest.fixture(autouse=True)
+def mock_async_sleep():
+    """Mock asyncio.sleep in the input module to skip real delays (2s waits)."""
+    with patch(
+        "browser_utils.page_controller_modules.input.asyncio.sleep",
+        new_callable=AsyncMock,
+    ):
+        yield
+
+
 @pytest.fixture
 def input_controller(mock_page_controller, mock_constants):
     return InputController(

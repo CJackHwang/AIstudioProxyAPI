@@ -46,7 +46,7 @@ class WebSocketConnectionManager:
         await websocket.accept()
         self.active_connections[client_id] = websocket
         logger = logging.getLogger("AIStudioProxyServer")
-        logger.info(f"WebSocket 日志客户端已连接: {client_id}")
+        logger.debug(f"WebSocket 日志客户端已连接: {client_id}")
         try:
             await websocket.send_text(
                 json.dumps(
@@ -67,7 +67,7 @@ class WebSocketConnectionManager:
         if client_id in self.active_connections:
             del self.active_connections[client_id]
             logger = logging.getLogger("AIStudioProxyServer")
-            logger.info(f"WebSocket 日志客户端已断开: {client_id}")
+            logger.debug(f"WebSocket 日志客户端已断开: {client_id}")
 
     async def broadcast(self, message: str):
         if not self.active_connections:

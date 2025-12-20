@@ -336,7 +336,11 @@ async def test_adjust_google_search(controller, mock_check_disconnect, mock_page
     ]  # Initial check, then check after click
     mock_page.locator.return_value = toggle
 
-    await controller._adjust_google_search(request_params, mock_check_disconnect)
+    # Mock _supports_google_search to return True so the function doesn't skip early
+    with patch.object(controller, "_supports_google_search", return_value=True):
+        await controller._adjust_google_search(
+            request_params, "gemini-2.0-flash", mock_check_disconnect
+        )
 
     toggle.click.assert_called_once()
 
@@ -825,3 +829,273 @@ async def test_adjust_top_p_clamping(controller, mock_check_disconnect, mock_pag
 
     # Should clamp to 1.0 and log warning
     locator.fill.assert_called_with("1.0", timeout=5000)
+
+
+@pytest.mark.asyncio
+async def test_adjust_top_p_value_error(
+    controller, mock_check_disconnect, mock_page, mock_save_snapshot
+):
+    """Test top_p ValueError handling (lines 543-547)."""
+    locator = AsyncMock()
+    locator.input_value.return_value = "invalid"
+    mock_page.locator.return_value = locator
+
+    await controller._adjust_top_p(0.9, mock_check_disconnect)
+
+    # Should save snapshot on ValueError
+    mock_save_snapshot.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_adjust_top_p_general_exception(
+    controller, mock_check_disconnect, mock_page, mock_save_snapshot
+):
+    """Test top_p general exception handling (lines 548-556)."""
+    locator = AsyncMock()
+    locator.input_value.side_effect = Exception("Playwright error")
+    mock_page.locator.return_value = locator
+
+    await controller._adjust_top_p(0.9, mock_check_disconnect)
+
+    # Should save snapshot on exception
+    mock_save_snapshot.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_adjust_top_p_cancelled_error(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test top_p CancelledError is re-raised (line 549-550)."""
+    locator = AsyncMock()
+    locator.input_value.side_effect = asyncio.CancelledError()
+    mock_page.locator.return_value = locator
+
+    with pytest.raises(asyncio.CancelledError):
+        await controller._adjust_top_p(0.9, mock_check_disconnect)
+
+
+@pytest.mark.asyncio
+async def test_adjust_top_p_client_disconnected(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test top_p ClientDisconnectedError is re-raised (lines 555-556)."""
+    locator = AsyncMock()
+    locator.input_value.side_effect = ClientDisconnectedError("test_req", "test stage")
+    mock_page.locator.return_value = locator
+
+    with pytest.raises(ClientDisconnectedError):
+        await controller._adjust_top_p(0.9, mock_check_disconnect)
+
+
+@pytest.mark.asyncio
+async def test_ensure_tools_panel_expanded_exception(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test tools panel expansion exception handling (lines 585-591)."""
+    collapse_btn = AsyncMock()
+    collapse_btn.locator = MagicMock()
+    collapse_btn.locator.return_value.get_attribute.side_effect = Exception(
+        "Playwright error"
+    )
+    mock_page.locator.return_value = collapse_btn
+
+    # Should not raise, just log error
+    await controller._ensure_tools_panel_expanded(mock_check_disconnect)
+
+
+@pytest.mark.asyncio
+async def test_ensure_tools_panel_expanded_cancelled_error(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test tools panel CancelledError is re-raised (line 586-587)."""
+    collapse_btn = AsyncMock()
+    collapse_btn.locator = MagicMock()
+    collapse_btn.locator.return_value.get_attribute.side_effect = (
+        asyncio.CancelledError()
+    )
+    mock_page.locator.return_value = collapse_btn
+
+    with pytest.raises(asyncio.CancelledError):
+        await controller._ensure_tools_panel_expanded(mock_check_disconnect)
+
+
+@pytest.mark.asyncio
+async def test_ensure_tools_panel_expanded_client_disconnected(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test tools panel ClientDisconnectedError is re-raised (lines 590-591)."""
+    collapse_btn = AsyncMock()
+    collapse_btn.locator = MagicMock()
+    collapse_btn.locator.return_value.get_attribute.side_effect = (
+        ClientDisconnectedError("test_req", "test stage")
+    )
+    mock_page.locator.return_value = collapse_btn
+
+    with pytest.raises(ClientDisconnectedError):
+        await controller._ensure_tools_panel_expanded(mock_check_disconnect)
+
+
+@pytest.mark.asyncio
+async def test_open_url_content_exception(controller, mock_check_disconnect, mock_page):
+    """Test URL content exception handling (lines 610-615)."""
+    switch = AsyncMock()
+    switch.get_attribute.side_effect = Exception("Playwright error")
+    mock_page.locator.return_value = switch
+
+    # Should not raise, just log error
+    await controller._open_url_content(mock_check_disconnect)
+
+
+@pytest.mark.asyncio
+async def test_open_url_content_cancelled_error(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test URL content CancelledError is re-raised (line 611-612)."""
+    switch = AsyncMock()
+    switch.get_attribute.side_effect = asyncio.CancelledError()
+    mock_page.locator.return_value = switch
+
+    with pytest.raises(asyncio.CancelledError):
+        await controller._open_url_content(mock_check_disconnect)
+
+
+@pytest.mark.asyncio
+async def test_open_url_content_client_disconnected(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test URL content ClientDisconnectedError is re-raised (lines 614-615)."""
+    switch = AsyncMock()
+    switch.get_attribute.side_effect = ClientDisconnectedError("test_req", "test stage")
+    mock_page.locator.return_value = switch
+
+    with pytest.raises(ClientDisconnectedError):
+        await controller._open_url_content(mock_check_disconnect)
+
+
+@pytest.mark.asyncio
+async def test_adjust_google_search_model_not_supported(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test Google Search skipped for unsupported models (lines 661-663)."""
+    request_params = {"tools": [{"function": {"name": "googleSearch"}}]}
+
+    # Model doesn't support Google Search
+    with patch.object(controller, "_supports_google_search", return_value=False):
+        await controller._adjust_google_search(
+            request_params, "gemini-2.0-flash-lite", mock_check_disconnect
+        )
+
+    # Should not interact with page
+    mock_page.locator.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_adjust_google_search_toggle_not_visible(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test Google Search when toggle not visible (AssertionError case, lines 715-716)."""
+    request_params = {}
+    toggle = AsyncMock()
+    mock_page.locator.return_value = toggle
+
+    with (
+        patch.object(controller, "_supports_google_search", return_value=True),
+        patch(
+            "browser_utils.page_controller_modules.parameters.expect_async"
+        ) as mock_expect,
+    ):
+        mock_expect.return_value.to_be_visible = AsyncMock(
+            side_effect=AssertionError("Locator expected to be visible")
+        )
+
+        # Should not raise, just log debug message
+        await controller._adjust_google_search(
+            request_params, "gemini-flash", mock_check_disconnect
+        )
+
+
+@pytest.mark.asyncio
+async def test_adjust_google_search_general_exception(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test Google Search general exception (lines 717-718)."""
+    request_params = {}
+    toggle = AsyncMock()
+    toggle.get_attribute.side_effect = RuntimeError("Unexpected error")
+    mock_page.locator.return_value = toggle
+
+    with patch.object(controller, "_supports_google_search", return_value=True):
+        # Should not raise, just log error
+        await controller._adjust_google_search(
+            request_params, "gemini-flash", mock_check_disconnect
+        )
+
+
+@pytest.mark.asyncio
+async def test_adjust_google_search_cancelled_error(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test Google Search CancelledError is re-raised (line 711-712)."""
+    request_params = {}
+    toggle = AsyncMock()
+    toggle.get_attribute.side_effect = asyncio.CancelledError()
+    mock_page.locator.return_value = toggle
+
+    with patch.object(controller, "_supports_google_search", return_value=True):
+        with pytest.raises(asyncio.CancelledError):
+            await controller._adjust_google_search(
+                request_params, "gemini-flash", mock_check_disconnect
+            )
+
+
+@pytest.mark.asyncio
+async def test_adjust_google_search_client_disconnected(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test Google Search ClientDisconnectedError is re-raised (lines 719-720)."""
+    request_params = {}
+    toggle = AsyncMock()
+    toggle.get_attribute.side_effect = ClientDisconnectedError("test_req", "test stage")
+    mock_page.locator.return_value = toggle
+
+    with patch.object(controller, "_supports_google_search", return_value=True):
+        with pytest.raises(ClientDisconnectedError):
+            await controller._adjust_google_search(
+                request_params, "gemini-flash", mock_check_disconnect
+            )
+
+
+@pytest.mark.asyncio
+async def test_adjust_google_search_update_failed(
+    controller, mock_check_disconnect, mock_page
+):
+    """Test Google Search toggle update verification failure (lines 704-708)."""
+    request_params = {"tools": [{"function": {"name": "googleSearch"}}]}
+
+    toggle = AsyncMock()
+    # Initially off, stays off after click (update failed)
+    toggle.get_attribute.side_effect = ["false", "false"]
+    mock_page.locator.return_value = toggle
+
+    with patch.object(controller, "_supports_google_search", return_value=True):
+        await controller._adjust_google_search(
+            request_params, "gemini-flash", mock_check_disconnect
+        )
+
+    # Should log warning about failed update
+    toggle.click.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_supports_google_search_gemini20(controller):
+    """Test _supports_google_search returns False for Gemini 2.0."""
+    assert controller._supports_google_search("gemini-2.0-flash") is False
+    assert controller._supports_google_search("gemini2.0-flash-exp") is False
+
+
+@pytest.mark.asyncio
+async def test_supports_google_search_other_models(controller):
+    """Test _supports_google_search returns True for other models."""
+    assert controller._supports_google_search("gemini-2.5-flash") is True
+    assert controller._supports_google_search("gemini-3-pro") is True
+    assert controller._supports_google_search(None) is True

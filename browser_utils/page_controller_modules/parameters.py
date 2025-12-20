@@ -101,7 +101,9 @@ class ParameterController(BaseController):
             )
 
         # 调整 Google Search 开关
-        await self._adjust_google_search(request_params, check_client_disconnected)
+        await self._adjust_google_search(
+            request_params, model_id_to_use, check_client_disconnected
+        )
 
     async def _adjust_temperature(
         self,
@@ -634,10 +636,32 @@ class ParameterController(BaseController):
             self.logger.debug(f"[Param] Tools: 未指定 (默认 {ENABLE_GOOGLE_SEARCH})")
             return ENABLE_GOOGLE_SEARCH
 
+    def _supports_google_search(self, model_id: Optional[str]) -> bool:
+        """Check if a model supports Google Search based on model ID pattern."""
+        if not model_id:
+            return True  # Default to true for unknown models
+
+        model_lower = model_id.lower()
+
+        # Gemini 2.0 models don't support Google Search
+        if "gemini-2.0" in model_lower or "gemini2.0" in model_lower:
+            return False
+
+        # All other models support Google Search
+        return True
+
     async def _adjust_google_search(
-        self, request_params: Dict[str, Any], check_client_disconnected: Callable
+        self,
+        request_params: Dict[str, Any],
+        model_id: Optional[str],
+        check_client_disconnected: Callable,
     ):
         """Adjust Google Search toggle with Silent Success pattern."""
+        # Check if model supports Google Search before attempting toggle
+        if not self._supports_google_search(model_id):
+            self.logger.debug("[Param] Google Search: 该模型不支持此功能，跳过")
+            return
+
         should_enable_search = self._should_enable_google_search(request_params)
         desired_state = "On" if should_enable_search else "Off"
 
@@ -686,6 +710,11 @@ class ParameterController(BaseController):
         except Exception as e:
             if isinstance(e, asyncio.CancelledError):
                 raise
-            self.logger.error(f"Google Search toggle error: {e}")
+            # AssertionError from expect_async visibility check is expected for models
+            # that don't have Google Search tool (e.g., gemini-2.0-flash-lite)
+            if isinstance(e, AssertionError) and "visible" in str(e).lower():
+                self.logger.debug("[Param] Google Search: 该模型不支持此功能，跳过")
+            else:
+                self.logger.error(f"Google Search toggle error: {e}")
             if isinstance(e, ClientDisconnectedError):
                 raise

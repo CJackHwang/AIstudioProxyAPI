@@ -187,22 +187,20 @@ class TestRegressionFixes:
     """Regression tests for specific bug fixes."""
 
     @pytest.mark.asyncio
-    async def test_find_first_visible_locator_waits_for_elements(self):
-        """Verify find_first_visible_locator actively waits for elements.
+    async def test_find_first_visible_locator_uses_active_listening(self):
+        """Verify find_first_visible_locator uses active DOM listening.
 
         Regression test for timing issue: In headless mode, elements may not
-        be rendered immediately after page load. Using find_first_visible_locator
-        (which calls expect().to_be_visible()) ensures we wait for elements,
-        unlike find_first_available_locator which only checks if elements exist.
+        be rendered immediately after page load. The function should use
+        Playwright's expect().to_be_visible() with MutationObserver internally,
+        not just poll or check existence.
 
         This test ensures:
-        1. Phase 1 uses count() to check existence
-        2. Phase 2 uses Playwright's expect().to_be_visible() with the specified timeout
+        - Primary selector gets full timeout for active waiting
+        - Playwright's expect().to_be_visible() is called with specified timeout
         """
         mock_page = MagicMock()
         mock_locator = MagicMock()
-        # Mock count() to return 1 (element exists) so Phase 1 passes
-        mock_locator.count = AsyncMock(return_value=1)
         mock_page.locator.return_value = mock_locator
 
         # Track if to_be_visible was called with a timeout
@@ -218,12 +216,12 @@ class TestRegressionFixes:
 
             await find_first_visible_locator(
                 mock_page,
-                ["ms-prompt-input-wrapper"],
+                ["ms-chunk-editor"],
                 "input container",
                 timeout_per_selector=30000,  # 30 seconds as used in core.py
             )
 
-        # Verify Phase 2 to_be_visible was called with the specified timeout
+        # Verify to_be_visible was called with the specified timeout
         assert len(visibility_calls) == 1
         assert visibility_calls[0]["timeout"] == 30000
 

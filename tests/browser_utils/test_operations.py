@@ -16,6 +16,16 @@ from browser_utils.operations import (
 )
 
 
+@pytest.fixture(autouse=True)
+def mock_async_sleep():
+    """Mock asyncio.sleep in interactions module to skip real delays (0.3-0.5s waits)."""
+    with patch(
+        "browser_utils.operations_modules.interactions.asyncio.sleep",
+        new_callable=AsyncMock,
+    ):
+        yield
+
+
 def make_mock_page():
     """Create a properly configured mock page with sync/async methods.
 

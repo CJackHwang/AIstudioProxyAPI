@@ -21,7 +21,17 @@ def mock_controller(mock_page):
 
 def test_get_thinking_category(mock_controller):
     """Test model category detection via _get_thinking_category."""
-    # THINKING_LEVEL: gemini-3-pro models
+    # THINKING_LEVEL_FLASH: gemini-3-flash models (4-level thinking)
+    assert (
+        mock_controller._get_thinking_category("gemini-3-flash-preview")
+        == ThinkingCategory.THINKING_LEVEL_FLASH
+    )
+    assert (
+        mock_controller._get_thinking_category("gemini-3-flash")
+        == ThinkingCategory.THINKING_LEVEL_FLASH
+    )
+
+    # THINKING_LEVEL: gemini-3-pro models (2-level thinking)
     assert (
         mock_controller._get_thinking_category("gemini-3-pro")
         == ThinkingCategory.THINKING_LEVEL
@@ -182,6 +192,93 @@ async def test_handle_thinking_budget_enabled_level(mock_controller):
         {"reasoning_effort": "invalid"}, "gemini-3-pro", MagicMock(return_value=False)
     )
     mock_controller._set_thinking_level.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_handle_thinking_budget_flash_4_levels(mock_controller):
+    """Test Gemini 3 Flash 4-level thinking (minimal, low, medium, high).
+
+    This tests the THINKING_LEVEL_FLASH category which maps reasoning_effort
+    to 4 distinct levels based on thresholds:
+    - high: >= 16000 or -1 (unlimited)
+    - medium: >= 8000
+    - low: >= 1024
+    - minimal: < 1024
+    """
+    mock_controller._get_thinking_category = MagicMock(
+        return_value=ThinkingCategory.THINKING_LEVEL_FLASH
+    )
+    mock_controller._has_thinking_dropdown = AsyncMock(return_value=True)
+    mock_controller._set_thinking_level = AsyncMock()
+
+    # Test string levels (direct mapping)
+    test_cases = [
+        ("minimal", "minimal"),
+        ("low", "low"),
+        ("medium", "medium"),
+        ("high", "high"),
+        ("MINIMAL", "minimal"),  # Case insensitive
+        ("HIGH", "high"),
+    ]
+
+    for input_level, expected_level in test_cases:
+        mock_controller._set_thinking_level.reset_mock()
+        await mock_controller._handle_thinking_budget(
+            {"reasoning_effort": input_level},
+            "gemini-3-flash-preview",
+            MagicMock(return_value=False),
+        )
+        (
+            mock_controller._set_thinking_level.assert_called_with(
+                expected_level, unittest.mock.ANY
+            ),
+            f"Failed for input '{input_level}': expected '{expected_level}'",
+        )
+
+
+@pytest.mark.asyncio
+async def test_handle_thinking_budget_flash_numeric_thresholds(mock_controller):
+    """Test Gemini 3 Flash numeric threshold mapping.
+
+    Thresholds:
+    - >= 16000: high
+    - >= 8000: medium
+    - >= 1024: low
+    - < 1024: minimal
+    """
+    mock_controller._get_thinking_category = MagicMock(
+        return_value=ThinkingCategory.THINKING_LEVEL_FLASH
+    )
+    mock_controller._has_thinking_dropdown = AsyncMock(return_value=True)
+    mock_controller._set_thinking_level = AsyncMock()
+
+    # Test numeric thresholds (boundary cases)
+    test_cases = [
+        (16000, "high"),  # Exactly at high threshold
+        (20000, "high"),  # Above high threshold
+        (-1, "high"),  # Unlimited
+        (8000, "medium"),  # Exactly at medium threshold
+        (15999, "medium"),  # Just below high
+        (1024, "low"),  # Exactly at low threshold
+        (7999, "low"),  # Just below medium
+        (1023, "minimal"),  # Just below low
+        (1, "minimal"),  # Minimum positive value (0 disables thinking)
+        (500, "minimal"),  # Well below low
+    ]
+
+    for input_value, expected_level in test_cases:
+        mock_controller._set_thinking_level.reset_mock()
+        await mock_controller._handle_thinking_budget(
+            {"reasoning_effort": input_value},
+            "gemini-3-flash-preview",
+            MagicMock(return_value=False),
+        )
+        (
+            mock_controller._set_thinking_level.assert_called_with(
+                expected_level, unittest.mock.ANY
+            ),
+            f"Failed for input {input_value}: expected '{expected_level}'",
+        )
 
 
 @pytest.mark.asyncio
@@ -1619,3 +1716,148 @@ async def test_control_thinking_budget_toggle_top_level_errors(
             await mock_controller._control_thinking_budget_toggle(
                 True, check_disconnect_mock
             )
+
+
+# --- Additional Coverage Tests for Uncovered Lines ---
+
+
+@pytest.mark.asyncio
+async def test_handle_thinking_budget_non_thinking_category(mock_controller):
+    """Test early return for NON_THINKING category (lines 66-67)."""
+    mock_controller._get_thinking_category = MagicMock(
+        return_value=ThinkingCategory.NON_THINKING
+    )
+    mock_controller._control_thinking_mode_toggle = AsyncMock()
+    mock_controller._control_thinking_budget_toggle = AsyncMock()
+
+    # Should return early without calling any toggles
+    await mock_controller._handle_thinking_budget(
+        {"reasoning_effort": "high"}, "gemini-2.0-flash", MagicMock(return_value=False)
+    )
+
+    mock_controller._control_thinking_mode_toggle.assert_not_called()
+    mock_controller._control_thinking_budget_toggle.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_handle_thinking_budget_flash_string_numeric_parsing(mock_controller):
+    """Test Flash 4-level string numeric parsing (lines 149-163)."""
+    mock_controller._get_thinking_category = MagicMock(
+        return_value=ThinkingCategory.THINKING_LEVEL_FLASH
+    )
+    mock_controller._has_thinking_dropdown = AsyncMock(return_value=True)
+    mock_controller._set_thinking_level = AsyncMock()
+
+    # Test string numeric values for Flash 4-level model
+    test_cases = [
+        ("16000", "high"),      # String >= 16000 -> high
+        ("20000", "high"),      # String > 16000 -> high
+        ("8000", "medium"),     # String >= 8000 -> medium
+        ("10000", "medium"),    # String between 8000-16000 -> medium
+        ("1024", "low"),        # String >= 1024 -> low
+        ("2000", "low"),        # String between 1024-8000 -> low
+        ("500", "minimal"),     # String < 1024 -> minimal
+        ("100", "minimal"),     # String well below 1024 -> minimal
+        ("none", "high"),       # "none" maps to "high" for Flash (lines 149-150)
+        ("-1", "high"),         # "-1" maps to "high" (lines 149-150)
+    ]
+
+    for input_value, expected_level in test_cases:
+        mock_controller._set_thinking_level.reset_mock()
+        await mock_controller._handle_thinking_budget(
+            {"reasoning_effort": input_value},
+            "gemini-3-flash-preview",
+            MagicMock(return_value=False),
+        )
+        mock_controller._set_thinking_level.assert_called_with(
+            expected_level, unittest.mock.ANY
+        ), f"Failed for input '{input_value}': expected '{expected_level}'"
+
+
+@pytest.mark.asyncio 
+async def test_handle_thinking_budget_pro_string_exception(mock_controller):
+    """Test Pro level string parsing exception path (lines 174-175)."""
+    mock_controller._get_thinking_category = MagicMock(
+        return_value=ThinkingCategory.THINKING_LEVEL
+    )
+    mock_controller._has_thinking_dropdown = AsyncMock(return_value=True)
+    mock_controller._set_thinking_level = AsyncMock()
+
+    # Test string that can't be parsed as int
+    await mock_controller._handle_thinking_budget(
+        {"reasoning_effort": "invalid_string"},
+        "gemini-3-pro",
+        MagicMock(return_value=False),
+    )
+
+    # Should not call _set_thinking_level (level_to_set is None)
+    mock_controller._set_thinking_level.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_handle_thinking_budget_pro_string_numeric(mock_controller):
+    """Test Pro level string numeric parsing (lines 171-175)."""
+    mock_controller._get_thinking_category = MagicMock(
+        return_value=ThinkingCategory.THINKING_LEVEL
+    )
+    mock_controller._has_thinking_dropdown = AsyncMock(return_value=True)
+    mock_controller._set_thinking_level = AsyncMock()
+
+    # Test string numeric values for Pro 2-level model
+    test_cases = [
+        ("8000", "high"),       # String >= 8000 -> high
+        ("10000", "high"),      # String > 8000 -> high
+        ("7999", "low"),        # String < 8000 -> low
+        ("100", "low"),         # String well below 8000 -> low
+    ]
+
+    for input_value, expected_level in test_cases:
+        mock_controller._set_thinking_level.reset_mock()
+        await mock_controller._handle_thinking_budget(
+            {"reasoning_effort": input_value},
+            "gemini-3-pro",
+            MagicMock(return_value=False),
+        )
+        mock_controller._set_thinking_level.assert_called_with(
+            expected_level, unittest.mock.ANY
+        ), f"Failed for input '{input_value}': expected '{expected_level}'"
+
+
+@pytest.mark.asyncio
+async def test_handle_thinking_budget_default_level_none(mock_controller):
+    """Test default level assignment when reasoning_effort is None (lines 193-200)."""
+    mock_controller._get_thinking_category = MagicMock(
+        return_value=ThinkingCategory.THINKING_LEVEL
+    )
+    mock_controller._has_thinking_dropdown = AsyncMock(return_value=True)
+    mock_controller._set_thinking_level = AsyncMock()
+
+    # Pass None reasoning_effort to trigger default level logic (line 101, 191-200)
+    await mock_controller._handle_thinking_budget(
+        {"reasoning_effort": None},
+        "gemini-3-pro",
+        MagicMock(return_value=False),
+    )
+
+    # Should use DEFAULT_THINKING_LEVEL_PRO
+    mock_controller._set_thinking_level.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_handle_thinking_budget_default_level_flash(mock_controller):
+    """Test default level assignment for Flash model (lines 193-196)."""
+    mock_controller._get_thinking_category = MagicMock(
+        return_value=ThinkingCategory.THINKING_LEVEL_FLASH
+    )
+    mock_controller._has_thinking_dropdown = AsyncMock(return_value=True)
+    mock_controller._set_thinking_level = AsyncMock()
+
+    # Pass None reasoning_effort to trigger default level logic
+    await mock_controller._handle_thinking_budget(
+        {"reasoning_effort": None},
+        "gemini-3-flash",
+        MagicMock(return_value=False),
+    )
+
+    # Should use DEFAULT_THINKING_LEVEL_FLASH
+    mock_controller._set_thinking_level.assert_called()

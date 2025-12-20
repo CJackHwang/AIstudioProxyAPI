@@ -4,6 +4,7 @@
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -37,13 +38,16 @@ LOG_FILE_BACKUP_COUNT = int(os.environ.get("LOG_FILE_BACKUP_COUNT", "5"))
 AUTO_SAVE_AUTH = os.environ.get("AUTO_SAVE_AUTH", "").lower() in ("1", "true", "yes")
 AUTH_SAVE_TIMEOUT = int(os.environ.get("AUTH_SAVE_TIMEOUT", "30"))
 
-# --- 路径配置 ---
-AUTH_PROFILES_DIR = os.path.join(os.path.dirname(__file__), "..", "auth_profiles")
-ACTIVE_AUTH_DIR = os.path.join(AUTH_PROFILES_DIR, "active")
-SAVED_AUTH_DIR = os.path.join(AUTH_PROFILES_DIR, "saved")
-LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "logs")
-APP_LOG_FILE_PATH = os.path.join(LOG_DIR, "app.log")
-UPLOAD_FILES_DIR = os.path.join(os.path.dirname(__file__), "..", "upload_files")
+# --- 路径配置 (使用 pathlib) ---
+_CONFIG_DIR = Path(__file__).parent
+_PROJECT_ROOT = _CONFIG_DIR.parent
+
+AUTH_PROFILES_DIR = str(_PROJECT_ROOT / "auth_profiles")
+ACTIVE_AUTH_DIR = str(_PROJECT_ROOT / "auth_profiles" / "active")
+SAVED_AUTH_DIR = str(_PROJECT_ROOT / "auth_profiles" / "saved")
+LOG_DIR = str(_PROJECT_ROOT / "logs")
+APP_LOG_FILE_PATH = str(_PROJECT_ROOT / "logs" / "app.log")
+UPLOAD_FILES_DIR = str(_PROJECT_ROOT / "upload_files")
 
 
 def get_environment_variable(key: str, default: str = "") -> str:

@@ -68,11 +68,18 @@ class Launcher:  # pragma: no cover
                 run_internal_camoufox(self.args, launch_server, DefaultAddons)
             return
 
-        # 主启动器逻辑
-        setup_launcher_logging(log_level=logging.INFO)
+        # 主启动器逻辑 - 读取环境变量中的日志级别
+        log_level_str = os.environ.get("SERVER_LOG_LEVEL", "INFO").upper()
+        log_level = getattr(logging, log_level_str, logging.INFO)
+        setup_launcher_logging(log_level=log_level)
         logger.info("[系统] 启动器开始运行")
         ensure_auth_dirs_exist()
         check_dependencies(launch_server is not None, DefaultAddons is not None)
+
+        # 自动检查并重建前端（如果源文件有更新）
+        from launcher.frontend_build import ensure_frontend_built
+
+        ensure_frontend_built()
 
         self._check_deprecated_auth_file()
         self._determine_launch_mode()

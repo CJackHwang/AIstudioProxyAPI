@@ -32,7 +32,17 @@ ENABLE_THINKING_BUDGET = os.environ.get("ENABLE_THINKING_BUDGET", "false").lower
     "yes",
 )
 DEFAULT_THINKING_BUDGET = int(os.environ.get("DEFAULT_THINKING_BUDGET", "8192"))
-DEFAULT_THINKING_LEVEL = os.environ.get("DEFAULT_THINKING_LEVEL", "high").lower()
+# Separate defaults for Pro (2 levels) and Flash (4 levels)
+_raw_level_pro = os.environ.get("DEFAULT_THINKING_LEVEL_PRO", "high").lower()
+DEFAULT_THINKING_LEVEL_PRO = (
+    _raw_level_pro if _raw_level_pro in ("high", "low") else "high"
+)
+_raw_level_flash = os.environ.get("DEFAULT_THINKING_LEVEL_FLASH", "high").lower()
+DEFAULT_THINKING_LEVEL_FLASH = (
+    _raw_level_flash
+    if _raw_level_flash in ("high", "medium", "low", "minimal")
+    else "high"
+)
 ENABLE_GOOGLE_SEARCH = os.environ.get("ENABLE_GOOGLE_SEARCH", "false").lower() in (
     "true",
     "1",

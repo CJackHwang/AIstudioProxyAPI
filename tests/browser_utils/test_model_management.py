@@ -630,22 +630,24 @@ async def test_switch_ai_studio_model_nav_only(mock_page):
 async def test_load_excluded_models_edge_cases(tmp_path):
     """Test edge cases for load_excluded_models"""
     # 1. File does not exist
-    # Mock server module
-    mock_server = MagicMock()
-    mock_server.excluded_model_ids = set()
+    # Mock server module - use api_utils.server_state.state which is what the implementation uses
+    mock_state = MagicMock()
+    mock_state.excluded_model_ids = set()
 
     with (
-        patch.dict(sys.modules, {"server": mock_server}),
+        patch("api_utils.server_state.state", mock_state),
         patch("browser_utils.models.switcher.logger") as mock_logger,
     ):
         load_excluded_models("non_existent.txt")
-        assert "未找到" in mock_logger.info.call_args[0][0]
+        # Implementation uses logger.debug, not logger.info
+        debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
+        assert any("未找到" in msg for msg in debug_calls)
 
     # 2. File exists but is empty - tested in the next block with mocked file I/O
 
     # Let's mock os.path.exists/open for easier testing of logic
     with (
-        patch.dict(sys.modules, {"server": mock_server}),
+        patch("api_utils.server_state.state", mock_state),
         patch("os.path.exists", return_value=True),
         patch("builtins.open", new_callable=MagicMock) as mock_open,
         patch("browser_utils.models.switcher.logger") as mock_logger,
@@ -656,11 +658,13 @@ async def test_load_excluded_models_edge_cases(tmp_path):
         mock_open.return_value = mock_file
 
         load_excluded_models("empty.txt")
-        assert "文件为空" in mock_logger.info.call_args[0][0]
+        # Implementation uses logger.debug
+        debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
+        assert any("文件为空" in msg for msg in debug_calls)
 
     # 3. Exception
     with (
-        patch.dict(sys.modules, {"server": mock_server}),
+        patch("api_utils.server_state.state", mock_state),
         patch("os.path.exists", side_effect=Exception("Disk Error")),
         patch("browser_utils.models.switcher.logger") as mock_logger,
     ):
@@ -1234,21 +1238,34 @@ async def test_set_model_from_page_display_set_storage_defaults(mock_page, mock_
 
 @pytest.mark.asyncio
 @pytest.mark.timeout(5)
-async def test_set_model_from_page_display_same_id(mock_page, mock_server):
-    """Test when displayed ID matches current server ID."""
-    mock_server.current_ai_studio_model_id = "gemini-pro"
+async def test_set_model_from_page_display_same_id(mock_page):
+    """Test when displayed ID matches current server ID.
+
+    Implementation note: When model ID is unchanged, no log is emitted (line 175 comment).
+    We verify the ID remains unchanged and no update occurs.
+    """
+    mock_state = MagicMock()
+    mock_state.current_ai_studio_model_id = "gemini-pro"
+    mock_state.parsed_model_list = []
+    mock_event = asyncio.Event()
+    mock_event.set()  # Already set
+    mock_state.model_list_fetch_event = mock_event
+
     mock_page.locator.return_value.first.inner_text = AsyncMock(
         return_value="gemini-pro"
     )
 
     with (
-        patch.dict(sys.modules, {"server": mock_server}),
+        patch("api_utils.server_state.state", mock_state),
         patch("browser_utils.models.startup.logger") as mock_logger,
     ):
         await _set_model_from_page_display(mock_page)
 
-        infos = [call.args[0] for call in mock_logger.info.call_args_list]
-        assert any("与从页面获取的值一致，未更改" in i for i in infos)
+        # Model ID should not have changed
+        assert mock_state.current_ai_studio_model_id == "gemini-pro"
+        # Implementation doesn't log when unchanged, so just verify debug was called for reading
+        debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
+        assert any("gemini-pro" in msg for msg in debug_calls)
 
 
 # === Section 6: Switch Model Tests ===

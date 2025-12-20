@@ -143,7 +143,7 @@ def setup_server_logging(
         )
     else:
         ws_handler = WebSocketLogHandler(log_ws_manager)
-        ws_handler.setLevel(logging.INFO)
+        ws_handler.setLevel(log_level)  # Match console handler behavior
         ws_handler.setFormatter(PlainGridFormatter())
         logger_instance.addHandler(ws_handler)
 

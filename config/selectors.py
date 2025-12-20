@@ -113,6 +113,9 @@ THINKING_BUDGET_INPUT_SELECTOR = (
 THINKING_LEVEL_SELECT_SELECTOR = '[role="combobox"][aria-label="Thinking Level"], mat-select[aria-label="Thinking Level"], [role="combobox"][aria-label="Thinking level"], mat-select[aria-label="Thinking level"]'
 THINKING_LEVEL_OPTION_LOW_SELECTOR = '[role="listbox"][aria-label="Thinking Level"] [role="option"]:has-text("Low"), [role="listbox"][aria-label="Thinking level"] [role="option"]:has-text("Low")'
 THINKING_LEVEL_OPTION_HIGH_SELECTOR = '[role="listbox"][aria-label="Thinking Level"] [role="option"]:has-text("High"), [role="listbox"][aria-label="Thinking level"] [role="option"]:has-text("High")'
+THINKING_LEVEL_OPTION_MEDIUM_SELECTOR = '[role="listbox"][aria-label="Thinking Level"] [role="option"]:has-text("Medium"), [role="listbox"][aria-label="Thinking level"] [role="option"]:has-text("Medium")'
+THINKING_LEVEL_OPTION_MINIMAL_SELECTOR = '[role="listbox"][aria-label="Thinking Level"] [role="option"]:has-text("Minimal"), [role="listbox"][aria-label="Thinking level"] [role="option"]:has-text("Minimal")'
+
 
 # --- Google Search Grounding ---
 GROUNDING_WITH_GOOGLE_SEARCH_TOGGLE_SELECTOR = (
