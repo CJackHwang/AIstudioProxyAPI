@@ -6,7 +6,6 @@
 
 完成首次认证设置后，您可以选择以下方式进行日常运行：
 
-- **图形界面启动**: 使用 [`gui_launcher.py`](../gui_launcher.py) 提供的现代化 GUI 界面 (支持一键创建认证)
 - **命令行启动**: 直接使用 [`launch_camoufox.py`](../launch_camoufox.py) 命令行工具
 - **Docker 部署**: 使用容器化部署方式
 
@@ -24,9 +23,6 @@
 ### 基本启动（推荐）
 
 ```bash
-# 图形界面启动（推荐新手）
-python gui_launcher.py
-
 # 命令行启动（推荐日常使用）
 python launch_camoufox.py --headless
 
@@ -35,8 +31,6 @@ python launch_camoufox.py --debug
 ```
 
 **就这么简单！** 所有配置都在 `.env` 文件中预设好了，无需复杂的命令行参数。
-
-> **💡 提示**: 如果您是首次使用，强烈推荐使用 **图形界面启动 (`gui_launcher.py`)**。它提供了一个向导式的"创建新认证文件"功能，可以自动处理登录和文件保存，比命令行更直观。
 
 ## 启动器说明
 
@@ -152,35 +146,23 @@ python launch_camoufox.py --headless --stream-port 0 --helper ''
 
 在此模式下，主服务器将仅通过 Playwright 与 AI Studio 页面交互 (模拟点击"编辑"或"复制"按钮) 来获取响应。这是传统的后备方法。
 
-## 使用图形界面启动器
+## 图形界面启动器 (已废弃)
 
-项目提供了一个基于 Tkinter 的图形用户界面 (GUI) 启动器：[`gui_launcher.py`](../gui_launcher.py)。
+> [!WARNING]
+> GUI 启动器 (`gui_launcher.py`) 已移至 `deprecated/` 目录。推荐使用命令行方式 `python launch_camoufox.py`。
 
-### 启动 GUI
+项目曾提供一个基于 Tkinter 的图形用户界面 (GUI) 启动器，但现已废弃。
 
-```bash
-python gui_launcher.py
-```
+该工具的功能可通过以下命令行改写实现：
 
-### GUI 功能
-
-- **服务端口配置**: 指定 FastAPI 服务器监听的端口号 (默认为 2048)。
-- **端口进程管理**: 查询和停止指定端口上的进程。
-- **认证文件管理**:
-  - **创建新认证**: 引导式流程，打开浏览器登录并自动保存 Cookie 到文件。
-  - **切换认证**: 在多个已保存的认证文件（Profile）之间快速切换。
-- **启动选项**:
-  1. **启动有头模式 (Debug, 交互式)**: 对应 `python launch_camoufox.py --debug`
-  2. **启动无头模式 (后台独立运行)**: 对应 `python launch_camoufox.py --headless`
-- **本地 LLM 模拟服务**: 启动和管理本地 LLM 模拟服务 (基于 [`llm.py`](../llm.py))
-- **状态与日志**: 显示服务状态和实时日志
+- **有头模式**: `python launch_camoufox.py --debug`
+- **无头模式**: `python launch_camoufox.py --headless`
 
 ### 使用建议
 
-- **首次运行**: 点击"管理认证文件" -> "创建新认证文件"，跟随指引完成登录。
-- **日常后台运行**: 确保认证文件已激活，然后点击"启动无头模式"。
-- **故障排查**: 使用"启动有头模式"观察浏览器行为。
-- 需要详细日志或调试：直接使用命令行 [`launch_camoufox.py`](../launch_camoufox.py)
+- **首次运行**: 使用 `python launch_camoufox.py --debug` 并手动完成登录
+- **日常后台运行**: `python launch_camoufox.py --headless`
+- **故障排查**: 使用 `--debug` 模式观察浏览器行为
 
 ## 重要注意事项
 

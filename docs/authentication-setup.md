@@ -1,6 +1,6 @@
 # 首次运行与认证设置指南
 
-为了避免每次启动都手动登录 AI Studio，你需要先通过 [`launch_camoufox.py --debug`](../launch_camoufox.py) 模式或 [`gui_launcher.py`](../gui_launcher.py) 的有头模式运行一次来生成认证文件。
+为了避免每次启动都手动登录 AI Studio，你需要先通过 [`launch_camoufox.py --debug`](../launch_camoufox.py) 模式运行一次来生成认证文件。
 
 ## 认证文件的重要性
 
@@ -61,9 +61,14 @@ python launch_camoufox.py --debug --server-port 2048 --stream-port 0 --helper ''
 6.  **激活文件**: **将 `auth_profiles/saved/` 下新生成的 `.json` 文件移动到 `auth_profiles/active/` 目录。** 确保 `active` 目录下只有一个 `.json` 文件。
 7.  可以按 `Ctrl+C` 停止 `--debug` 模式的运行。
 
-## 方法二：通过 GUI 启动有头模式 (推荐)
+## 方法二：通过 GUI 启动有头模式 (已废弃)
 
-1.  运行 `python gui_launcher.py`。
+> [!WARNING]
+> GUI 启动器 (`gui_launcher.py`) 已移至 `deprecated/` 目录。请使用上面的命令行方式。
+
+以下步骤仅供参考，不再推荐使用：
+
+1.  运行 `python deprecated/gui_launcher.py`。
 2.  在 "认证文件管理" 区域，点击 **"管理认证文件"** 按钮。
 3.  在弹出的窗口中，点击 **"创建新认证文件"** 按钮。
 4.  输入想要保存的文件名（例如 `account1`），点击确定。
@@ -83,7 +88,7 @@ python launch_camoufox.py --debug --server-port 2048 --stream-port 0 --helper ''
 **认证文件会过期!** Google 的登录状态不是永久有效的。当无头模式启动失败并报告认证错误或重定向到登录页时，意味着 `active` 目录下的认证文件已失效。你需要：
 
 1. 删除 `active` 目录下的旧文件。
-2. 重新执行上面的 **【通过命令行运行 Debug 模式】** 或 **【通过 GUI 启动有头模式】** 步骤，生成新的认证文件。
+2. 重新执行上面的 **【通过命令行运行 Debug 模式】** 步骤，生成新的认证文件。
 3. 将新生成的 `.json` 文件再次移动到 `active` 目录下。
 
 ## 重要提示

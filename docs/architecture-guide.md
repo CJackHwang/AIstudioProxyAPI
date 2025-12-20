@@ -21,13 +21,19 @@ AIstudioProxyAPI/
 │   ├── app.py                 # 应用入口和生命周期管理
 │   ├── routers/               # API 路由（按职责拆分）
 │   │   ├── api_keys.py        # /api/keys* 密钥管理
+│   │   ├── auth_files.py      # /api/auth-files* 认证文件管理
 │   │   ├── chat.py            # /v1/chat/completions
 │   │   ├── health.py          # /health 健康检查
+│   │   ├── helper.py          # /api/helper* Helper 服务配置
 │   │   ├── info.py            # /api/info 信息端点
 │   │   ├── logs_ws.py         # /ws/logs WebSocket 日志
+│   │   ├── model_capabilities.py  # /api/model-capabilities
 │   │   ├── models.py          # /v1/models 模型列表
+│   │   ├── ports.py           # /api/ports* 端口配置
+│   │   ├── proxy.py           # /api/proxy* 代理配置
 │   │   ├── queue.py           # /v1/queue, /v1/cancel
-│   │   └── static.py          # /, /webui.css, /webui.js
+│   │   ├── server.py          # /api/server* 服务器控制
+│   │   └── static.py          # /, /assets/* React SPA
 │   ├── request_processor.py   # 请求处理核心逻辑
 │   ├── queue_worker.py        # 异步队列工作器
 │   ├── response_generators.py # SSE 响应生成器
@@ -41,10 +47,13 @@ AIstudioProxyAPI/
 │   ├── sse.py                 # SSE 流式响应处理
 │   ├── utils.py               # 通用工具函数
 │   └── utils_ext/             # 扩展工具模块
-│       ├── attachments.py     # 附件处理
-│       ├── formatting.py      # 格式化工具
+│       ├── files.py           # 文件/附件处理
+│       ├── helper.py          # Helper 服务工具
 │       ├── prompts.py         # 提示词处理
-│       ├── streaming.py       # 流式处理工具
+│       ├── stream.py          # 流式处理工具
+│       ├── string_utils.py    # 字符串工具
+│       ├── tokens.py          # Token 计算
+│       ├── tools_execution.py # 工具执行
 │       └── validation.py      # 请求验证
 │
 ├── browser_utils/              # 浏览器自动化模块
@@ -67,7 +76,7 @@ AIstudioProxyAPI/
 │   │   ├── interactions.py    # 页面交互
 │   │   └── errors.py          # 错误处理
 │   ├── model_management.py    # 模型管理
-│   ├── script_manager.py      # 脚本注入管理 (v3.0)
+│   ├── operations.py          # 操作聚合入口
 │   ├── debug_utils.py         # 调试工具
 │   ├── thinking_normalizer.py # 思考过程标准化
 │   └── more_models.js         # 油猴脚本模板
@@ -76,7 +85,9 @@ AIstudioProxyAPI/
 │   ├── settings.py            # 主要设置和环境变量
 │   ├── constants.py           # 系统常量定义
 │   ├── timeouts.py            # 超时配置
-│   └── selectors.py           # CSS 选择器定义
+│   ├── selectors.py           # CSS 选择器定义
+│   ├── selector_utils.py      # 选择器工具函数
+│   └── model_capabilities.json # 模型能力配置
 │
 ├── models/                     # 数据模型定义
 │   ├── chat.py                # 聊天相关模型
@@ -96,6 +107,8 @@ AIstudioProxyAPI/
 │   ├── config.py              # 启动配置处理
 │   ├── checks.py              # 环境与依赖检查
 │   ├── process.py             # Camoufox 进程管理
+│   ├── frontend_build.py      # 前端构建检查
+│   ├── internal.py            # 内部工具
 │   ├── logging_setup.py       # 日志配置
 │   └── utils.py               # 启动器工具
 │
@@ -104,8 +117,9 @@ AIstudioProxyAPI/
 │   └── grid_logger.py         # 网格日志器
 │
 ├── server.py                   # 应用入口点
-├── gui_launcher.py             # GUI 启动器
-├── launch_camoufox.py          # 命令行启动器
+├── launch_camoufox.py          # 命令行启动器（主入口）
+├── deprecated/                 # 已废弃的模块
+│   └── gui_launcher.py         # [已废弃] GUI 启动器
 └── pyproject.toml              # Poetry 配置
 ```
 
@@ -170,11 +184,13 @@ AIstudioProxyAPI/
 | `scripts.py` | UserScript 脚本注入              |
 | `debug.py`   | 调试监听器设置                   |
 
-#### script_manager.py - 脚本注入 v3.0
+#### 脚本注入机制
 
-- Playwright 原生网络拦截
-- 油猴脚本解析和注入
-- 模型数据同步
+脚本注入通过 `initialization/network.py` 实现：
+
+- Playwright 原生路由拦截 `/api/models`
+- 从油猴脚本 (`more_models.js`) 解析模型数据
+- 模型数据自动同步到页面
 
 ### 3. stream/ - 流式代理服务
 
@@ -257,6 +273,7 @@ AIstudioProxyAPI/
 | `constants.py`            | 系统常量定义                                   |
 | `timeouts.py`             | 超时配置                                       |
 | `selectors.py`            | CSS 选择器定义                                 |
+| `selector_utils.py`       | 选择器工具函数                                 |
 | `model_capabilities.json` | 模型能力配置（思考类型、Google Search 支持等） |
 
 > **注意**: `model_capabilities.json` 是外部化的 JSON 配置文件，用于定义各模型的能力参数。

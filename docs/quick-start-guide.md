@@ -135,7 +135,7 @@ poetry shell
 
 ```bash
 # 每次运行命令时加上 poetry run 前缀
-poetry run python gui_launcher.py
+poetry run python launch_camoufox.py --headless
 ```
 
 ---
@@ -215,20 +215,7 @@ poetry run python launch_camoufox.py --debug
 
 认证完成后，您有多种方式启动服务：
 
-### 方式 1: GUI 启动器（推荐新手）
-
-```bash
-poetry run python gui_launcher.py
-```
-
-**特点**:
-
-- ✅ 图形界面，直观易用
-- ✅ 可视化配置选项
-- ✅ 实时查看日志
-- ✅ 一键启动/停止服务
-
-### 方式 2: 命令行启动（推荐日常使用）
+### 方式 1: 命令行启动（推荐）
 
 **无头模式**（推荐，后台运行浏览器）:
 
@@ -248,7 +235,7 @@ poetry run python launch_camoufox.py
 poetry run python launch_camoufox.py --virtual-display
 ```
 
-### 方式 3: 直接启动 FastAPI (开发调试)
+### 方式 2: 直接启动 FastAPI (开发调试)
 
 ```bash
 # 仅启动 API 服务器（不启动浏览器）

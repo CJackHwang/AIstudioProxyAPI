@@ -84,7 +84,7 @@ $env:Path += ";$env:APPDATA\Python\Scripts"
 poetry shell
 
 # 或使用 poetry run
-poetry run python gui_launcher.py
+poetry run python launch_camoufox.py --headless
 ```
 
 **CMD**:

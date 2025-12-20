@@ -15,17 +15,16 @@
 - **智能模型切换**: 动态切换 AI Studio 模型，完整参数控制
 - **反指纹检测**: Camoufox 浏览器降低被检测风险
 - **现代化 Web UI**: 内置测试界面、状态监控、API 密钥管理
-- **图形界面启动器**: GUI 启动器简化配置和进程管理
 - **脚本注入 v3.0**: Playwright 原生网络拦截，支持油猴脚本动态挂载
 
 ## 系统要求
 
-| 组件 | 要求 | 推荐 |
-|------|------|------|
-| **Python** | ≥3.9, <4.0 | 3.10+ 或 3.11+ |
-| **依赖管理** | Poetry | 最新版本 |
-| **内存** | ≥2GB | ≥4GB |
-| **网络** | 稳定互联网 | 可配置代理 |
+| 组件         | 要求       | 推荐           |
+| ------------ | ---------- | -------------- |
+| **Python**   | ≥3.9, <4.0 | 3.10+ 或 3.11+ |
+| **依赖管理** | Poetry     | 最新版本       |
+| **内存**     | ≥2GB       | ≥4GB           |
+| **网络**     | 稳定互联网 | 可配置代理     |
 
 ---
 
@@ -81,7 +80,6 @@ graph TD
     end
 
     subgraph "启动与配置"
-        GUI_Launch["gui_launcher.py"]
         CLI_Launch["launch_camoufox.py"]
         EnvConfig[".env 配置"]
     end
@@ -97,7 +95,7 @@ graph TD
         AI_Studio["Google AI Studio"]
     end
 
-    User --> GUI_Launch & CLI_Launch
+    User --> CLI_Launch
     API_Client & WebUI --> FastAPI_App
     FastAPI_App --> PageController & StreamProxy
     PageController --> CamoufoxInstance --> AI_Studio
@@ -108,12 +106,11 @@ graph TD
 
 ## 运行模式
 
-| 命令 | 说明 | 场景 |
-|------|------|------|
-| `python gui_launcher.py` | GUI 启动器 | 新手、可视化配置 |
-| `python launch_camoufox.py --headless` | 无头模式 | 日常使用、服务器 |
-| `python launch_camoufox.py --debug` | 调试模式 | 首次认证、故障排查 |
-| `python launch_camoufox.py --virtual-display` | 虚拟显示 | Linux 无 GUI 环境 |
+| 命令                                          | 说明     | 场景               |
+| --------------------------------------------- | -------- | ------------------ |
+| `python launch_camoufox.py --headless`        | 无头模式 | 日常使用、服务器   |
+| `python launch_camoufox.py --debug`           | 调试模式 | 首次认证、故障排查 |
+| `python launch_camoufox.py --virtual-display` | 虚拟显示 | Linux 无 GUI 环境  |
 
 ---
 
@@ -128,12 +125,12 @@ nano .env
 
 ### 核心配置
 
-| 配置 | 默认值 | 说明 |
-|------|--------|------|
-| `PORT` | 2048 | FastAPI 服务端口 |
-| `STREAM_PORT` | 3120 | 流式代理端口 (0 禁用) |
-| `UNIFIED_PROXY_CONFIG` | - | HTTP/HTTPS 代理 |
-| `SERVER_LOG_LEVEL` | INFO | 日志级别 |
+| 配置                   | 默认值 | 说明                  |
+| ---------------------- | ------ | --------------------- |
+| `PORT`                 | 2048   | FastAPI 服务端口      |
+| `STREAM_PORT`          | 3120   | 流式代理端口 (0 禁用) |
+| `UNIFIED_PROXY_CONFIG` | -      | HTTP/HTTPS 代理       |
+| `SERVER_LOG_LEVEL`     | INFO   | 日志级别              |
 
 > **详细配置**: [环境变量完整参考](docs/env-variables-reference.md)
 
@@ -160,12 +157,14 @@ bash update.sh
 ## 📚 文档
 
 ### 快速上手
+
 - **[快速开始指南](docs/quick-start-guide.md)** - 15 分钟快速部署 🎯
 - [安装指南](docs/installation-guide.md) - 详细安装步骤
 - [认证设置指南](docs/authentication-setup.md) - 首次认证设置
 - [日常运行指南](docs/daily-usage.md) - 日常使用
 
 ### 功能使用
+
 - [API 使用指南](docs/api-usage.md) - API 端点和配置
 - **[OpenAI 兼容性说明](docs/openai-compatibility.md)** - 与 OpenAI API 差异 🔄
 - [客户端集成示例](docs/client-examples.md) - 代码示例 💻
@@ -173,6 +172,7 @@ bash update.sh
 - [脚本注入指南](docs/script_injection_guide.md) - 油猴脚本功能 (v3.0)
 
 ### 高级配置
+
 - [环境变量配置指南](docs/environment-configuration.md) - 配置管理 ⭐
 - [环境变量完整参考](docs/env-variables-reference.md) - 所有配置项 📋
 - [流式处理模式详解](docs/streaming-modes.md) - 三层响应机制
@@ -180,6 +180,7 @@ bash update.sh
 - [故障排除指南](docs/troubleshooting.md) - 问题解决
 
 ### 开发相关
+
 - [项目架构指南](docs/architecture-guide.md) - 模块化架构
 - [开发者指南](docs/development-guide.md) - Poetry、Pyright 工作流
 

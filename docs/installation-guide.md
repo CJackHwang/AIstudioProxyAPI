@@ -167,21 +167,7 @@ nano .env  # 或使用其他编辑器
 
 完成配置后，您可以选择以下几种方式启动服务：
 
-### 1. GUI 启动 (最推荐)
-
-对于大多数用户，尤其是新手，我们强烈推荐使用图形化界面 (GUI) 启动器。这是最简单、最直观的方式。
-
-```bash
-# 在 Poetry 环境中运行
-poetry run python gui_launcher.py
-
-# 或者，如果您已经激活了虚拟环境
-python gui_launcher.py
-```
-
-GUI 启动器会自动处理后台进程，并提供一个简单的界面来控制服务的启动和停止，以及查看日志。
-
-### 2. 命令行启动 (进阶)
+### 1. 命令行启动 (推荐)
 
 对于熟悉命令行的用户，可以直接使用 `launch_camoufox.py` 脚本启动服务。
 
@@ -199,7 +185,7 @@ poetry run python launch_camoufox.py --debug
 - `--debug`: 启动时显示浏览器界面，方便调试。
 - 更多参数请参阅[高级配置指南](advanced-configuration.md)。
 
-### 3. Docker 启动
+### 2. Docker 启动
 
 如果您熟悉 Docker，也可以使用容器化方式部署服务。这种方式可以提供更好的环境隔离。
 
@@ -224,7 +210,7 @@ poetry run python launch_camoufox.py --debug
 - 确保在安装 Python 时勾选了 "Add Python to PATH" 选项。
 - Windows 防火墙可能会阻止 Uvicorn/FastAPI 监听端口。如果遇到连接问题，请检查防火墙设置。
 - `playwright install-deps` 命令在原生 Windows 上作用有限，但运行 `camoufox fetch` 会确保下载正确的浏览器。
-- **推荐使用 [`gui_launcher.py`](../gui_launcher.py) 启动**，它会自动处理后台进程。
+- **推荐使用 `python launch_camoufox.py --headless` 启动**。
 
 #### WSL (Windows Subsystem for Linux)
 

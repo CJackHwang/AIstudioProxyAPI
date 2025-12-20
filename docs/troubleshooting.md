@@ -103,7 +103,7 @@ poetry install
 
 如果 [`server.py`](../server.py) 启动时提示端口 (`2048`) 被占用：
 
-- 如果使用 [`poetry run python gui_launcher.py`](../gui_launcher.py) 启动，它会尝试自动检测并提示终止占用进程。
+- 使用 `python launch_camoufox.py --headless` 启动时，可以通过终端直接查看端口占用信息。
 - 手动查找并结束占用进程：
 
   ```bash
