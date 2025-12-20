@@ -135,12 +135,27 @@ def rebuild_frontend() -> bool:
         return False
 
 
-def ensure_frontend_built() -> None:
+def ensure_frontend_built(skip_build: bool = False) -> None:
     """
     确保前端已构建且为最新。
 
     如果源文件比 dist 更新，则自动重建。
+
+    Args:
+        skip_build: 如果为 True，跳过所有构建检查。
+                   也可以通过设置环境变量 SKIP_FRONTEND_BUILD=1 来跳过。
     """
+    import os
+
+    # Check for skip flag from argument or environment
+    if skip_build or os.environ.get("SKIP_FRONTEND_BUILD", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        logger.info("[Build] 跳过前端构建检查 (SKIP_FRONTEND_BUILD)")
+        return
+
     if not _FRONTEND_SRC.exists():
         logger.debug("[Build] 未找到前端源目录，跳过构建检查")
         return

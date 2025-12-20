@@ -7,10 +7,8 @@ Endpoints for port configuration, status querying, and process management.
 import json
 import os
 import platform
-import signal
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
@@ -318,12 +316,41 @@ async def kill_process(request: KillRequest) -> JSONResponse:
     """
     终止指定PID的进程。
 
-    需要 confirm=true 确认操作。
+    安全性验证：
+    - 需要 confirm=true 确认操作
+    - PID必须属于配置的端口上的进程
+
+    Args:
+        request: 包含 PID 和确认标志的请求
+
+    Raises:
+        HTTPException 400: 未确认操作
+        HTTPException 403: PID不属于跟踪的端口
     """
     if not request.confirm:
         raise HTTPException(
             status_code=400,
             detail="请设置 confirm=true 确认终止进程",
+        )
+
+    # Security: Validate PID belongs to a tracked port
+    config = _load_port_config()
+    tracked_pids: set[int] = set()
+
+    # Collect PIDs from all configured ports
+    for port in [config.fastapi_port, config.camoufox_debug_port]:
+        for proc in _find_processes_on_port(port):
+            tracked_pids.add(proc.pid)
+
+    # Also check stream proxy port if enabled
+    if config.stream_proxy_enabled and config.stream_proxy_port > 0:
+        for proc in _find_processes_on_port(config.stream_proxy_port):
+            tracked_pids.add(proc.pid)
+
+    if request.pid not in tracked_pids:
+        raise HTTPException(
+            status_code=403,
+            detail=f"安全验证失败：PID {request.pid} 不属于配置的端口。只能终止在 FastAPI ({config.fastapi_port})、Camoufox ({config.camoufox_debug_port}) 或 Stream Proxy ({config.stream_proxy_port}) 端口上运行的进程。",
         )
 
     success, message = _kill_process(request.pid)

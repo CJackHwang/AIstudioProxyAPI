@@ -195,10 +195,18 @@ class TestKillProcess:
         assert response.status_code == 400
 
     def test_kill_process_with_confirmation(self, client: TestClient) -> None:
-        """Test kill process with confirmation."""
-        with patch(
-            "api_utils.routers.ports._kill_process",
-            return_value=(True, "进程已终止"),
+        """Test kill process with confirmation when PID is on a tracked port."""
+        # Must mock _find_processes_on_port to return a process with matching PID
+        mock_processes = [ProcessInfo(pid=1234, name="python")]
+        with (
+            patch(
+                "api_utils.routers.ports._find_processes_on_port",
+                return_value=mock_processes,
+            ),
+            patch(
+                "api_utils.routers.ports._kill_process",
+                return_value=(True, "进程已终止"),
+            ),
         ):
             response = client.post(
                 "/api/ports/kill",
@@ -208,11 +216,34 @@ class TestKillProcess:
             data = response.json()
             assert data["success"] is True
 
-    def test_kill_process_failure(self, client: TestClient) -> None:
-        """Test kill process failure."""
+    def test_kill_process_unauthorized_pid(self, client: TestClient) -> None:
+        """Test kill process fails for PID not on tracked ports (security check)."""
+        # Mock _find_processes_on_port to return empty (PID not on any port)
         with patch(
-            "api_utils.routers.ports._kill_process",
-            return_value=(False, "无法终止进程"),
+            "api_utils.routers.ports._find_processes_on_port",
+            return_value=[],
+        ):
+            response = client.post(
+                "/api/ports/kill",
+                json={"pid": 9999, "confirm": True},
+            )
+            assert response.status_code == 403
+            data = response.json()
+            assert "9999" in data["detail"]
+
+    def test_kill_process_failure(self, client: TestClient) -> None:
+        """Test kill process failure when kill actually fails."""
+        # Mock: PID is on tracked port, but kill fails
+        mock_processes = [ProcessInfo(pid=1234, name="python")]
+        with (
+            patch(
+                "api_utils.routers.ports._find_processes_on_port",
+                return_value=mock_processes,
+            ),
+            patch(
+                "api_utils.routers.ports._kill_process",
+                return_value=(False, "无法终止进程"),
+            ),
         ):
             response = client.post(
                 "/api/ports/kill",

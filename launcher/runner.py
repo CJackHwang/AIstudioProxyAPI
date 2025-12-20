@@ -79,7 +79,7 @@ class Launcher:  # pragma: no cover
         # 自动检查并重建前端（如果源文件有更新）
         from launcher.frontend_build import ensure_frontend_built
 
-        ensure_frontend_built()
+        ensure_frontend_built(skip_build=self.args.skip_frontend_build)
 
         self._check_deprecated_auth_file()
         self._determine_launch_mode()

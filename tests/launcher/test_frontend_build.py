@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 
 from launcher import frontend_build
 
-
 # ==================== _get_latest_mtime TESTS ====================
 
 
@@ -422,4 +421,75 @@ def test_ensure_frontend_built_up_to_date_skips():
 
         frontend_build.ensure_frontend_built()
 
+        mock_rebuild.assert_not_called()
+
+
+def test_ensure_frontend_built_skip_build_flag():
+    """Test ensure_frontend_built skips when skip_build=True."""
+    with (
+        patch.object(frontend_build, "_FRONTEND_SRC") as mock_src,
+        patch.object(frontend_build, "is_frontend_stale") as mock_stale,
+        patch.object(frontend_build, "rebuild_frontend") as mock_rebuild,
+    ):
+        mock_src.exists.return_value = True
+        mock_stale.return_value = True
+
+        frontend_build.ensure_frontend_built(skip_build=True)
+
+        # Should not call is_frontend_stale or rebuild_frontend
+        mock_stale.assert_not_called()
+        mock_rebuild.assert_not_called()
+
+
+def test_ensure_frontend_built_skip_env_var():
+    """Test ensure_frontend_built skips when SKIP_FRONTEND_BUILD=1."""
+    with (
+        patch.dict("os.environ", {"SKIP_FRONTEND_BUILD": "1"}),
+        patch.object(frontend_build, "_FRONTEND_SRC") as mock_src,
+        patch.object(frontend_build, "is_frontend_stale") as mock_stale,
+        patch.object(frontend_build, "rebuild_frontend") as mock_rebuild,
+    ):
+        mock_src.exists.return_value = True
+        mock_stale.return_value = True
+
+        frontend_build.ensure_frontend_built()
+
+        # Should not call is_frontend_stale or rebuild_frontend
+        mock_stale.assert_not_called()
+        mock_rebuild.assert_not_called()
+
+
+def test_ensure_frontend_built_skip_env_var_true():
+    """Test ensure_frontend_built skips when SKIP_FRONTEND_BUILD=true."""
+    with (
+        patch.dict("os.environ", {"SKIP_FRONTEND_BUILD": "true"}),
+        patch.object(frontend_build, "_FRONTEND_SRC") as mock_src,
+        patch.object(frontend_build, "is_frontend_stale") as mock_stale,
+        patch.object(frontend_build, "rebuild_frontend") as mock_rebuild,
+    ):
+        mock_src.exists.return_value = True
+        mock_stale.return_value = True
+
+        frontend_build.ensure_frontend_built()
+
+        # Should not call is_frontend_stale or rebuild_frontend
+        mock_stale.assert_not_called()
+        mock_rebuild.assert_not_called()
+
+
+def test_ensure_frontend_built_skip_env_var_yes():
+    """Test ensure_frontend_built skips when SKIP_FRONTEND_BUILD=yes."""
+    with (
+        patch.dict("os.environ", {"SKIP_FRONTEND_BUILD": "yes"}),
+        patch.object(frontend_build, "_FRONTEND_SRC") as mock_src,
+        patch.object(frontend_build, "is_frontend_stale") as mock_stale,
+        patch.object(frontend_build, "rebuild_frontend") as mock_rebuild,
+    ):
+        mock_src.exists.return_value = True
+        mock_stale.return_value = True
+
+        frontend_build.ensure_frontend_built()
+
+        # Should not call is_frontend_stale or rebuild_frontend
+        mock_stale.assert_not_called()
         mock_rebuild.assert_not_called()

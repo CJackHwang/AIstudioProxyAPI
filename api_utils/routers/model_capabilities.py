@@ -4,21 +4,48 @@ Model Capabilities API Endpoint
 SINGLE SOURCE OF TRUTH for model thinking capabilities.
 Frontend fetches this to determine UI controls dynamically.
 
-When new models are released, update ONLY this file.
+Configuration is loaded from config/model_capabilities.json.
+When new models are released, update the JSON file - no code changes needed.
 """
 
-from typing import Literal
+import json
+import re
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
-# Model category types
-ThinkingType = Literal["level", "budget", "none"]
+# Config file path
+_CONFIG_PATH = (
+    Path(__file__).parent.parent.parent / "config" / "model_capabilities.json"
+)
 
 
-def _get_model_capabilities(model_id: str) -> dict:
+@lru_cache(maxsize=1)
+def _load_config() -> dict[str, Any]:
+    """
+    Load model capabilities configuration from JSON file.
+
+    Uses LRU cache to avoid repeated file reads.
+    Raises FileNotFoundError if config is missing.
+    """
+    if not _CONFIG_PATH.exists():
+        raise FileNotFoundError(f"Model capabilities config not found: {_CONFIG_PATH}")
+
+    with open(_CONFIG_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def reload_config() -> None:
+    """Clear the config cache, forcing a reload on next access."""
+    _load_config.cache_clear()
+
+
+def _get_model_capabilities(model_id: str) -> dict[str, Any]:
     """
     Determine thinking capabilities for a model.
 
@@ -27,73 +54,32 @@ def _get_model_capabilities(model_id: str) -> dict:
     - levels: List of thinking levels (for type="level")
     - alwaysOn: Whether thinking is always on (for Gemini 2.5 Pro)
     - budgetRange: [min, max] for budget slider
+    - supportsGoogleSearch: Whether the model supports Google Search
     """
+    config = _load_config()
+    categories = config.get("categories", {})
+    matchers = config.get("matchers", [])
+
     model_lower = model_id.lower()
 
-    # Gemini 3 Flash: 4-level selector
-    if (
-        "gemini-3" in model_lower or "gemini3" in model_lower
-    ) and "flash" in model_lower:
-        return {
-            "thinkingType": "level",
-            "levels": ["minimal", "low", "medium", "high"],
-            "defaultLevel": "high",
-            "supportsGoogleSearch": True,
-        }
+    # Try each matcher in order (order matters: more specific first)
+    for matcher in matchers:
+        pattern = matcher.get("pattern", "")
+        category_name = matcher.get("category", "")
 
-    # Gemini 3 Pro: 2-level selector
-    if ("gemini-3" in model_lower or "gemini3" in model_lower) and "pro" in model_lower:
-        return {
-            "thinkingType": "level",
-            "levels": ["low", "high"],
-            "defaultLevel": "high",
-            "supportsGoogleSearch": True,
-        }
+        if pattern and category_name:
+            try:
+                if re.search(pattern, model_lower, re.IGNORECASE):
+                    if category_name in categories:
+                        return categories[category_name].copy()
+            except re.error:
+                # Invalid regex pattern, skip
+                continue
 
-    # Gemini 2.5 Pro: Always-on thinking with budget
-    if "gemini-2.5-pro" in model_lower or "gemini-2.5pro" in model_lower:
-        return {
-            "thinkingType": "budget",
-            "alwaysOn": True,
-            "budgetRange": [1024, 32768],
-            "defaultBudget": 32768,
-            "supportsGoogleSearch": True,
-        }
-
-    # Gemini 2.5 Flash and latest variants: Toggle + budget
-    if (
-        "gemini-2.5-flash" in model_lower
-        or "gemini-2.5flash" in model_lower
-        or model_lower == "gemini-flash-latest"
-        or model_lower == "gemini-flash-lite-latest"
-    ):
-        return {
-            "thinkingType": "budget",
-            "alwaysOn": False,
-            "budgetRange": [512, 24576],
-            "defaultBudget": 24576,
-            "supportsGoogleSearch": True,
-        }
-
-    # Gemini 2.0 models: No thinking, no Google Search
-    if "gemini-2.0" in model_lower or "gemini2.0" in model_lower:
-        return {
-            "thinkingType": "none",
-            "supportsGoogleSearch": False,
-        }
-
-    # Gemini robotics models: special case - has Google Search
-    if "gemini-robotics" in model_lower:
-        return {
-            "thinkingType": "none",
-            "supportsGoogleSearch": True,
-        }
-
-    # Other models: No thinking controls, default to Google Search enabled
-    return {
-        "thinkingType": "none",
-        "supportsGoogleSearch": True,
-    }
+    # Default to "other" category
+    return categories.get(
+        "other", {"thinkingType": "none", "supportsGoogleSearch": True}
+    )
 
 
 @router.get("/api/model-capabilities")
@@ -103,68 +89,16 @@ async def get_model_capabilities() -> JSONResponse:
 
     Frontend uses this to dynamically configure thinking controls.
     """
-    return JSONResponse(
-        content={
-            "categories": {
-                "gemini3Flash": {
-                    "thinkingType": "level",
-                    "levels": ["minimal", "low", "medium", "high"],
-                    "defaultLevel": "high",
-                    "supportsGoogleSearch": True,
-                },
-                "gemini3Pro": {
-                    "thinkingType": "level",
-                    "levels": ["low", "high"],
-                    "defaultLevel": "high",
-                    "supportsGoogleSearch": True,
-                },
-                "gemini25Pro": {
-                    "thinkingType": "budget",
-                    "alwaysOn": True,
-                    "budgetRange": [1024, 32768],
-                    "defaultBudget": 32768,
-                    "supportsGoogleSearch": True,
-                },
-                "gemini25Flash": {
-                    "thinkingType": "budget",
-                    "alwaysOn": False,
-                    "budgetRange": [512, 24576],
-                    "defaultBudget": 24576,
-                    "supportsGoogleSearch": True,
-                },
-                "gemini2": {
-                    "thinkingType": "none",
-                    "supportsGoogleSearch": False,
-                },
-                "other": {
-                    "thinkingType": "none",
-                    "supportsGoogleSearch": True,
-                },
-            },
-            "matchers": [
-                # Order matters: more specific patterns first
-                {
-                    "pattern": "gemini-3.*flash|gemini3.*flash",
-                    "category": "gemini3Flash",
-                },
-                {"pattern": "gemini-3.*pro|gemini3.*pro", "category": "gemini3Pro"},
-                {
-                    "pattern": "gemini-2\\.5-pro|gemini-2\\.5pro",
-                    "category": "gemini25Pro",
-                },
-                {
-                    "pattern": "gemini-2\\.5-flash|gemini-2\\.5flash|gemini-flash-latest|gemini-flash-lite-latest",
-                    "category": "gemini25Flash",
-                },
-                {"pattern": "gemini-2\\.0|gemini2\\.0", "category": "gemini2"},
-            ],
-        }
-    )
+    config = _load_config()
+    return JSONResponse(content=config)
 
 
-@router.get("/api/model-capabilities/{model_id}")
+@router.get("/api/model-capabilities/{model_id:path}")
 async def get_single_model_capabilities(model_id: str) -> JSONResponse:
     """
     Return thinking capabilities for a specific model.
+
+    Args:
+        model_id: Model identifier (e.g., "gemini-2.5-flash-preview")
     """
     return JSONResponse(content=_get_model_capabilities(model_id))

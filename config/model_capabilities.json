@@ -1,0 +1,74 @@
+{
+  "categories": {
+    "gemini3Flash": {
+      "thinkingType": "level",
+      "levels": ["minimal", "low", "medium", "high"],
+      "defaultLevel": "high",
+      "supportsGoogleSearch": true
+    },
+    "gemini3Pro": {
+      "thinkingType": "level",
+      "levels": ["low", "high"],
+      "defaultLevel": "high",
+      "supportsGoogleSearch": true
+    },
+    "gemini25Pro": {
+      "thinkingType": "budget",
+      "alwaysOn": true,
+      "budgetRange": [1024, 32768],
+      "defaultBudget": 32768,
+      "supportsGoogleSearch": true
+    },
+    "gemini25Flash": {
+      "thinkingType": "budget",
+      "alwaysOn": false,
+      "budgetRange": [512, 24576],
+      "defaultBudget": 24576,
+      "supportsGoogleSearch": true
+    },
+    "gemini2": {
+      "thinkingType": "none",
+      "supportsGoogleSearch": false
+    },
+    "geminiRobotics": {
+      "thinkingType": "none",
+      "supportsGoogleSearch": true
+    },
+    "other": {
+      "thinkingType": "none",
+      "supportsGoogleSearch": true
+    }
+  },
+  "matchers": [
+    {
+      "pattern": "gemini-3.*flash|gemini3.*flash",
+      "category": "gemini3Flash",
+      "description": "Gemini 3 Flash models with 4-level thinking"
+    },
+    {
+      "pattern": "gemini-3.*pro|gemini3.*pro",
+      "category": "gemini3Pro",
+      "description": "Gemini 3 Pro models with 2-level thinking"
+    },
+    {
+      "pattern": "gemini-2\\.5-pro|gemini-2\\.5pro",
+      "category": "gemini25Pro",
+      "description": "Gemini 2.5 Pro with always-on thinking budget"
+    },
+    {
+      "pattern": "gemini-2\\.5-flash|gemini-2\\.5flash|gemini-flash-latest|gemini-flash-lite-latest",
+      "category": "gemini25Flash",
+      "description": "Gemini 2.5 Flash with optional thinking budget"
+    },
+    {
+      "pattern": "gemini-2\\.0|gemini2\\.0",
+      "category": "gemini2",
+      "description": "Gemini 2.0 models without thinking"
+    },
+    {
+      "pattern": "gemini-robotics",
+      "category": "geminiRobotics",
+      "description": "Gemini Robotics models"
+    }
+  ]
+}

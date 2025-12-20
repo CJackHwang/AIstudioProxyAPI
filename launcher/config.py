@@ -239,4 +239,10 @@ def parse_args() -> argparse.Namespace:
         help="启用 server.py 内部的 TRACE 级别更详细日志 (环境变量 TRACE_LOGS_ENABLED)。",
     )
 
+    parser.add_argument(
+        "--skip-frontend-build",
+        action="store_true",
+        help="跳过前端资源构建检查 (适用于没有 Node.js/npm 的环境，或使用预构建资源)。",
+    )
+
     return parser.parse_args()
