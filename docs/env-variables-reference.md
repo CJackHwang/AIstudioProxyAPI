@@ -65,6 +65,15 @@
 - **示例**: `DIRECT_LAUNCH=false`
 - **说明**: 跳过等待选项超时，直接使用默认选项快速启动
 
+### SKIP_FRONTEND_BUILD
+
+- **用途**: 跳过前端构建检查
+- **类型**: 布尔值
+- **默认值**: `false`
+- **可选值**: `true`, `false`, `1`, `0`, `yes`, `no`
+- **示例**: `SKIP_FRONTEND_BUILD=true`
+- **说明**: 跳过启动时的前端资源构建检查。适用于没有 Node.js/npm 的环境，或使用预构建资源的部署场景。也可通过命令行参数 `--skip-frontend-build` 设置。
+
 ---
 
 ## 代理配置

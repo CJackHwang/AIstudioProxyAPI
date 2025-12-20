@@ -30,7 +30,7 @@ UNIFIED_PROXY_CONFIG=
 
 ## 响应获取模式配置
 
-### 模式1: 优先使用集成的流式代理 (默认推荐)
+### 模式 1: 优先使用集成的流式代理 (默认推荐)
 
 **推荐使用 .env 配置方式**:
 
@@ -56,7 +56,7 @@ python launch_camoufox.py --headless --server-port 2048 --stream-port 3120 --hel
 
 在此模式下，主服务器会优先尝试通过端口 `3120` (或指定的 `--stream-port`) 上的集成流式代理获取响应。如果失败，则回退到 Playwright 页面交互。
 
-### 模式2: 优先使用外部 Helper 服务 (禁用集成流式代理)
+### 模式 2: 优先使用外部 Helper 服务 (禁用集成流式代理)
 
 ```bash
 # 基本外部Helper模式，明确禁用代理
@@ -68,7 +68,7 @@ python launch_camoufox.py --headless --server-port 2048 --stream-port 0 --helper
 
 在此模式下，主服务器会优先尝试通过 `--helper` 指定的端点获取响应 (需要有效的 `auth_profiles/active/*.json` 以提取 `SAPISID`)。如果失败，则回退到 Playwright 页面交互。
 
-### 模式3: 仅使用 Playwright 页面交互 (禁用所有流式代理和 Helper)
+### 模式 3: 仅使用 Playwright 页面交互 (禁用所有流式代理和 Helper)
 
 ```bash
 # 纯Playwright模式，明确禁用代理
@@ -129,7 +129,7 @@ openssl rsa -in certs/ca.key -out certs/ca.key
 
 项目根目录下的 `excluded_models.txt` 文件可用于从 `/v1/models` 端点返回的列表中排除特定的模型 ID。
 
-每行一个模型ID，例如：
+每行一个模型 ID，例如：
 
 ```
 gemini-1.0-pro
@@ -195,14 +195,54 @@ ENABLE_URL_CONTEXT=true
 ONLY_COLLECT_CURRENT_USER_ATTACHMENTS=true
 ```
 
+### 前端构建控制
+
+```env
+# 跳过启动时的前端资源构建检查 (适用于无 Node.js 环境或使用预构建资源)
+SKIP_FRONTEND_BUILD=true
+```
+
+也可以通过命令行参数设置：
+
+```bash
+python launch_camoufox.py --headless --skip-frontend-build
+```
+
+## 模型能力配置
+
+### config/model_capabilities.json
+
+模型能力配置已外部化到 `config/model_capabilities.json` 文件。此配置定义了各模型的：
+
+- **thinkingType**: 思考模式类型 (`none`, `level`, `budget`)
+- **supportsGoogleSearch**: 是否支持 Google Search 工具
+- **levels/budgetRange**: 思考等级或预算范围
+
+**优势**：当 Google 发布新模型时，只需编辑 JSON 文件，无需修改代码。
+
+示例结构：
+
+```json
+{
+  "categories": {
+    "gemini3Flash": {
+      "thinkingType": "level",
+      "levels": ["minimal", "low", "medium", "high"],
+      "supportsGoogleSearch": true
+    }
+  },
+  "matchers": [{ "pattern": "gemini-3.*-flash", "category": "gemini3Flash" }]
+}
+```
+
 ## GUI 启动器高级功能
 
-### 本地LLM模拟服务
+### 本地 LLM 模拟服务
 
-GUI 集成了启动和管理一个本地LLM模拟服务的功能：
+GUI 集成了启动和管理一个本地 LLM 模拟服务的功能：
 
 - **功能**: 监听 `11434` 端口，模拟部分 Ollama API 端点和 OpenAI 兼容的 `/v1/chat/completions` 端点
-- **启动**: 在 GUI 的"启动选项"区域，点击"启动本地LLM模拟服务"按钮
+- **启动**: 在 GUI 的"启动选项"区域，点击"启动本地 LLM 模拟服务"按钮
 - **依赖检测**: 启动前会自动检测 `localhost:2048` 端口是否可用
 - **用途**: 主要用于测试客户端与 Ollama 或 OpenAI 兼容 API 的对接
 
@@ -213,6 +253,8 @@ GUI 提供端口进程管理功能：
 - 查询指定端口上当前正在运行的进程
 - 选择并尝试停止在指定端口上找到的进程
 - 手动输入 PID 终止进程
+
+**安全机制**：进程终止功能会验证 PID 是否属于配置的端口（FastAPI、Camoufox、Stream Proxy），防止意外终止无关进程。
 
 ## 环境变量配置
 

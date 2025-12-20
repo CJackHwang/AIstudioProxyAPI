@@ -74,6 +74,9 @@ STREAM_PORT=3120
 ```env
 # 快速启动
 DIRECT_LAUNCH=false
+
+# 跳过前端构建检查 (适用于无 Node.js 环境或使用预构建资源)
+SKIP_FRONTEND_BUILD=false
 ```
 
 ### 代理配置

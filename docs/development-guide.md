@@ -8,7 +8,10 @@
 
 - **Python**: ≥3.9, <4.0 (推荐 3.10+)
 - **Poetry**: 依赖管理工具
+- **Node.js**: ≥18 (用于前端开发，可选)
 - **Git**: 版本控制
+
+> **提示**: 如果不进行前端开发，可以使用 `--skip-frontend-build` 或设置 `SKIP_FRONTEND_BUILD=1` 跳过前端构建。
 
 ### 快速开始
 
@@ -91,6 +94,51 @@ poetry run python script.py
 
 ---
 
+## 🎨 前端开发 (React)
+
+前端使用 React + Vite + TypeScript 构建。
+
+### 开发模式
+
+```bash
+cd static/frontend
+
+# 安装依赖
+npm install
+
+# 开发服务器 (热重载)
+npm run dev
+
+# 构建生产版本
+npm run build
+
+# 运行测试
+npm run test
+```
+
+### 跳过前端构建
+
+如果只进行后端开发，可以跳过前端构建：
+
+```bash
+# 命令行方式
+python -m launcher.runner --skip-frontend-build
+
+# 环境变量方式
+SKIP_FRONTEND_BUILD=1 python -m launcher.runner
+```
+
+### 配置文件
+
+| 文件                               | 用途            |
+| ---------------------------------- | --------------- |
+| `static/frontend/package.json`     | 依赖和脚本配置  |
+| `static/frontend/vite.config.ts`   | Vite 构建配置   |
+| `static/frontend/tsconfig.json`    | TypeScript 配置 |
+| `static/frontend/vitest.config.ts` | Vitest 测试配置 |
+
+---
+
 ## 🔍 类型检查 (Pyright)
 
 项目使用 Pyright 进行类型检查。
@@ -111,6 +159,7 @@ pyright --watch
 ### 配置
 
 `pyrightconfig.json`:
+
 ```json
 {
   "pythonVersion": "3.13",
@@ -182,12 +231,12 @@ git push origin feature-branch
 
 ### 命名规范
 
-| 类型 | 规范 | 示例 |
-|------|------|------|
+| 类型   | 规范         | 示例                   |
+| ------ | ------------ | ---------------------- |
 | 文件名 | `snake_case` | `request_processor.py` |
-| 类名 | `PascalCase` | `QueueManager` |
-| 函数名 | `snake_case` | `process_request` |
-| 常量 | `UPPER_CASE` | `DEFAULT_PORT` |
+| 类名   | `PascalCase` | `QueueManager`         |
+| 函数名 | `snake_case` | `process_request`      |
+| 常量   | `UPPER_CASE` | `DEFAULT_PORT`         |
 
 ### 文档字符串
 
@@ -219,12 +268,12 @@ def process_request(request: ChatRequest) -> ChatResponse:
 
 ### 错误码规范
 
-| 错误码 | 场景 |
-|--------|------|
-| 499 | 客户端断开/取消 |
-| 502 | 上游/Playwright 失败 |
-| 503 | 服务不可用 |
-| 504 | 处理超时 |
+| 错误码 | 场景                 |
+| ------ | -------------------- |
+| 499    | 客户端断开/取消      |
+| 502    | 上游/Playwright 失败 |
+| 503    | 服务不可用           |
+| 504    | 处理超时             |
 
 ---
 
