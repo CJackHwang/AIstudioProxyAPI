@@ -155,6 +155,7 @@ cp .env.example .env
 - [认证轮转与 Cookie 刷新](docs/auth-rotation-cookie-refresh.md)
 - [排障指南](docs/troubleshooting.md)
 - [开发、测试与发布](docs/development-and-release.md)
+- [多实例 Docker 管理器](scripts/multi-instance-manager/README.md)
 
 ---
 

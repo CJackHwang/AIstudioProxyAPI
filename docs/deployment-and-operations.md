@@ -128,6 +128,18 @@ bash update.sh
 docker compose exec ai-studio-proxy /bin/bash
 ```
 
+## 3.5 多实例扩展
+
+如需为多个已保存认证同时启动隔离容器，可使用外部管理脚本 [`scripts/multi-instance-manager/README.md`](../scripts/multi-instance-manager/README.md)。
+
+当前 multi-instance 管理器会为每个容器显式设置独立的 `ACTIVE_AUTH_JSON_PATH`，并把选中的 profile 复制到 [`.multi-instance-runtime/active/`](../.multi-instance-runtime/) 后再挂载为容器内的 [`auth_profiles/active/`](../auth_profiles/active/) 单文件。默认同时关闭启动时自动轮转与运行时自动轮转，这样既能维持一容器一认证隔离，也能满足 Docker headless 启动阶段对 active-dir 的运行时要求。
+
+镜像名方面，管理器默认仍优先查找 `ai-studio-proxy:latest`。但如果你是通过 `cd docker && docker compose build` 构建，Compose 常见产物会是 `docker-ai-studio-proxy:latest`；在未显式覆盖镜像名时，脚本会自动回退到该 Compose 镜像并打印提示。若你通过 `--image` 或 `IMAGE_NAME` 指定了其他镜像名，则脚本会严格使用该值，不会静默改写。
+
+如需让单个容器重新参与跨 profile 轮转，可在脚本中使用 `--enable-auth-rotation`，但这会放宽默认的一容器一认证隔离约束。
+
+该方案面向高级用户，不修改主应用、Dockerfile 或默认 Docker 启动流程。
+
 ---
 
 ## 4. 生产配置建议（重点）

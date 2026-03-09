@@ -292,3 +292,5 @@ static/frontend/dist/
 
 # GUI Launcher user config (contains user-specific settings)
 gui/user_config.json
+
+.multi-instance-runtime/
