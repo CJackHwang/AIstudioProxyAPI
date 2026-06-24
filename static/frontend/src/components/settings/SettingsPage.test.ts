@@ -10,6 +10,7 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 import { useQuery } from "@tanstack/react-query";
+import { getApiKeyValue } from "./apiKeys";
 
 interface ServerStatus {
   status: string;
@@ -158,6 +159,10 @@ describe("SettingsPage ApiKeysSection Logic", () => {
       const key = "short";
       const truncated = key.substring(0, 16) + "...";
       expect(truncated).toBe("short...");
+    });
+
+    it("normalizes object key entries", () => {
+      expect(getApiKeyValue({ key: "sk-object-key" })).toBe("sk-object-key");
     });
 
     it("checks if keys array has items", () => {

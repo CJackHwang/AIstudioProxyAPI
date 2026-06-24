@@ -20,6 +20,7 @@ import { useI18n } from '@/contexts';
 import { ProxySettings } from './ProxySettings';
 import { AuthManager } from './AuthManager';
 import { PortConfiguration } from './PortConfig';
+import { type ApiKeyEntry, getApiKeyValue } from './apiKeys';
 import styles from './SettingsPage.module.css';
 
 // API functions
@@ -164,7 +165,7 @@ function StatusBar() {
 
 function ApiKeysSection() {
   const { t } = useI18n();
-  const { data, isLoading, refetch } = useQuery<{ keys: string[] }>({
+  const { data, isLoading, refetch } = useQuery<{ keys: ApiKeyEntry[] }>({
     queryKey: ['apiKeys'],
     queryFn: fetchApiKeys,
   });
@@ -229,17 +230,22 @@ function ApiKeysSection() {
       </p>
       <div className={styles.keyList}>
         {data?.keys?.length ? (
-          data.keys.map((key) => (
-            <div key={key} className={styles.keyItem}>
-              <code className={styles.keyValue}>{key.substring(0, 16)}...</code>
-              <button 
-                className={styles.deleteButton}
-                onClick={() => handleDelete(key)}
-              >
-                {t.common.delete}
-              </button>
-            </div>
-          ))
+          data.keys.map((entry) => {
+            const key = getApiKeyValue(entry);
+            if (!key) return null;
+
+            return (
+              <div key={key} className={styles.keyItem}>
+                <code className={styles.keyValue}>{key.substring(0, 16)}...</code>
+                <button
+                  className={styles.deleteButton}
+                  onClick={() => handleDelete(key)}
+                >
+                  {t.common.delete}
+                </button>
+              </div>
+            );
+          })
         ) : (
           <div className={styles.emptyState}>{t.settingsPage.noApiKeys}</div>
         )}
