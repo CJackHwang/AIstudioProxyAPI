@@ -8,6 +8,7 @@
 - [部署与运维指南](deployment-and-operations.md)
 - [配置参考](configuration-reference.md)
 - [API 使用说明](api-usage.md)
+- [Roo Code 配置指南](roocode-configuration.md)
 - [函数调用模式](function-calling.md)
 - [认证轮转与 Cookie 刷新](auth-rotation-cookie-refresh.md)
 - [排障指南](troubleshooting.md)

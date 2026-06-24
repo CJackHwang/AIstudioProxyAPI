@@ -151,6 +151,7 @@ cp .env.example .env
 - [快速开始](docs/quick-start.md)
 - [部署与运维指南](docs/deployment-and-operations.md)
 - [API 使用说明](docs/api-usage.md)
+- [Roo Code 配置指南](docs/roocode-configuration.md)
 - [函数调用模式](docs/function-calling.md)
 - [认证轮转与 Cookie 刷新](docs/auth-rotation-cookie-refresh.md)
 - [排障指南](docs/troubleshooting.md)
