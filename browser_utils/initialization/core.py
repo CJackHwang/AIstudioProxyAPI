@@ -177,7 +177,10 @@ async def initialize_page_logic(  # pragma: no cover
             if storage_state_path_to_use
             else None
         )
-        context_options: Dict[str, Any] = {"viewport": {"width": 460, "height": 800}}
+        # AI Studio's mobile layout (< ~960px) no longer renders the run-settings
+        # panel in the DOM, so model-name/temperature/etc. selectors need a
+        # desktop-sized viewport (matches the 1440x900 Camoufox window).
+        context_options: Dict[str, Any] = {"viewport": {"width": 1440, "height": 900}}
         if storage_state_path_to_use:
             context_options["storage_state"] = storage_state_path_to_use
             from api_utils.server_state import state
